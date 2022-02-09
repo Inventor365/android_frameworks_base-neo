@@ -49,6 +49,8 @@ import com.android.systemui.util.kotlin.pairwiseBy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -378,7 +380,12 @@ constructor(
                     shouldShowTaps = toolbarViewModel.recordParametersViewModel.shouldShowTaps,
                     lowQuality = toolbarViewModel.recordParametersViewModel.lowQuality,
                     longerDuration = toolbarViewModel.recordParametersViewModel.longerDuration,
-                )
+                ),
+                if (toolbarViewModel.recordParametersViewModel.skipTimer) {
+                    100.milliseconds
+                } else {
+                    3.seconds
+                },
             )
         }
     }

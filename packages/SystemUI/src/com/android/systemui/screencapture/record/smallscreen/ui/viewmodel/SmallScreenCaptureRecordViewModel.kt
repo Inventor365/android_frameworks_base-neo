@@ -51,6 +51,8 @@ import com.android.systemui.shared.system.ActivityManagerWrapper
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -255,6 +257,7 @@ constructor(
         val target = captureTargetModel?.currentTargetModel?.screenCaptureTarget ?: return
         val lowQuality = recordDetailsParametersViewModel.lowQuality
         val longerDuration = recordDetailsParametersViewModel.longerDuration
+        val delay = if (recordDetailsParametersViewModel.skipTimer) 100.milliseconds else 3.seconds
         when (target) {
             is ScreenCaptureTarget.Fullscreen -> {
                 val shouldShowTaps = recordDetailsParametersViewModel.shouldShowTaps
@@ -266,7 +269,8 @@ constructor(
                         audioSource = audioSource,
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
-                    )
+                    ),
+                    delay,
                 )
             }
             is ScreenCaptureTarget.App -> {
@@ -304,7 +308,8 @@ constructor(
                         audioSource = audioSource,
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
-                    )
+                    ),
+                    delay,
                 )
             }
             else -> error("Unsupported target=$target")

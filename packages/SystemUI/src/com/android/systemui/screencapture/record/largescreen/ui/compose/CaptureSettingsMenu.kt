@@ -179,6 +179,19 @@ fun CaptureSettingsMenu(viewModel: PreCaptureToolbarViewModel, screenRecordingSe
                 enabled = screenRecordingSelected,
             )
 
+            val skipTimerIcon by
+                loadIcon(
+                    viewModel = viewModel,
+                    resId = R.drawable.ic_sr_clock,
+                    contentDescription = null,
+                )
+            SettingsMenuItem(
+                text = stringResource(R.string.screenrecord_skip_time_label),
+                leadingIcon = skipTimerIcon,
+                checked = recordParameters.skipTimer,
+                onCheckedChange = { recordParameters.setSkipTimer(it) },
+                enabled = screenRecordingSelected,
+            )
             if (viewModel.customSaveLocationSupported) {
                 SaveLocationDropdown(
                     viewModel = viewModel,

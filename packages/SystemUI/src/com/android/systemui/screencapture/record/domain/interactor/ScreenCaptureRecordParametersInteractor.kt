@@ -74,6 +74,10 @@ constructor(
         }
         get() = repository.longerDuration
 
+    var skipTimer: Boolean
+        set(value) { repository.skipTimer = value }
+        get() = repository.skipTimer
+
     val canChangeAudioSource: StateFlow<Boolean> =
         serviceInteractor.status
             .map { it.canChangeAudioSource() }

@@ -77,6 +77,7 @@ constructor(
 
     val longerDuration: Boolean by interactor::longerDuration
 
+    val skipTimer: Boolean by interactor::skipTimer
     var shouldRecordDevice: Boolean
         get() =
             with(interactor) {
@@ -156,6 +157,9 @@ constructor(
         interactor.longerDuration = longerDuration
     }
 
+    fun setSkipTimer(skipTimer: Boolean) {
+        interactor.skipTimer = skipTimer
+    }
     @AssistedFactory
     interface Factory {
         fun create(): ScreenCaptureRecordParametersViewModel

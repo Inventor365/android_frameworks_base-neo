@@ -258,6 +258,7 @@ constructor(
         val lowQuality = recordDetailsParametersViewModel.lowQuality
         val longerDuration = recordDetailsParametersViewModel.longerDuration
         val delay = if (recordDetailsParametersViewModel.skipTimer) 100.milliseconds else 3.seconds
+        val hevc = recordDetailsParametersViewModel.hevc
         when (target) {
             is ScreenCaptureTarget.Fullscreen -> {
                 val shouldShowTaps = recordDetailsParametersViewModel.shouldShowTaps
@@ -269,6 +270,7 @@ constructor(
                         audioSource = audioSource,
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
+                        hevc = hevc,
                     ),
                     delay,
                 )
@@ -308,6 +310,7 @@ constructor(
                         audioSource = audioSource,
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
+                        hevc = hevc,
                     ),
                     delay,
                 )

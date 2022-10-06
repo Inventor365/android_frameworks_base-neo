@@ -78,6 +78,8 @@ constructor(
     val longerDuration: Boolean by interactor::longerDuration
 
     val skipTimer: Boolean by interactor::skipTimer
+
+    val hevc: Boolean by interactor::hevc
     var shouldRecordDevice: Boolean
         get() =
             with(interactor) {
@@ -159,6 +161,10 @@ constructor(
 
     fun setSkipTimer(skipTimer: Boolean) {
         interactor.skipTimer = skipTimer
+    }
+
+    fun setHevc(hevc: Boolean) {
+        interactor.hevc = hevc
     }
     @AssistedFactory
     interface Factory {

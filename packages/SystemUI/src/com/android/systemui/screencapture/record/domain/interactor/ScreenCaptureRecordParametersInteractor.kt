@@ -78,6 +78,10 @@ constructor(
         set(value) { repository.skipTimer = value }
         get() = repository.skipTimer
 
+    var hevc: Boolean
+        set(value) { repository.hevc = value }
+        get() = repository.hevc
+
     val canChangeAudioSource: StateFlow<Boolean> =
         serviceInteractor.status
             .map { it.canChangeAudioSource() }

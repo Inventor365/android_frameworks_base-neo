@@ -57,6 +57,7 @@ import com.android.systemui.res.R
 import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.scene.shared.model.Scenes
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
@@ -92,6 +93,7 @@ constructor(
     private val promptUdfpsTouchOverlayViewModel: Lazy<PromptUdfpsTouchOverlayViewModel>,
     private val udfpsOverlayInteractor: UdfpsOverlayInteractor,
     private val powerInteractor: PowerInteractor,
+    private val shadeInteractor: ShadeInteractor,
     @Application private val scope: CoroutineScope,
     sceneInteractor: Lazy<SceneInteractor>,
 ) {
@@ -134,6 +136,16 @@ constructor(
 
     private var overlayTouchListener: TouchExplorationStateChangeListener? = null
     private var overlayAttachStateListener: OnAttachStateChangeListener? = null
+
+    private val useFrameworkDimming = inflater.context.resources.getBoolean(
+        com.android.systemui.res.R.bool.config_udfpsFrameworkDimming
+    )
+
+    private val udfpsHelper: UdfpsHelper? = if (useFrameworkDimming) {
+        UdfpsHelper(inflater.context, windowManager, shadeInteractor, requestReason)
+    } else {
+        null
+    }
 
     private val coreLayoutParams =
         WindowManager.LayoutParams(
@@ -267,6 +279,7 @@ constructor(
     }
 
     private fun addViewNowOrLater(view: View, animation: UdfpsAnimationViewController<*>?) {
+        udfpsHelper?.addDimLayer()
         addViewRunnable =
             kotlinx.coroutines.Runnable {
                 Trace.setCounter("UdfpsAddView", 1)
@@ -321,6 +334,7 @@ constructor(
         }
         udfpsOverlayInteractor.stopHandlingTouches()
         udfpsDisplayModeProvider.disable(null)
+        udfpsHelper?.removeDimLayer()
         getTouchOverlay()?.apply {
             if (this.parent != null) {
                 if (Build.IS_DEBUGGABLE) {

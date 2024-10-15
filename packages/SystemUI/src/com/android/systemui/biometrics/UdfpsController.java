@@ -322,6 +322,7 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                         mPromptUdfpsTouchOverlayViewModel,
                         mUdfpsOverlayInteractor,
                         mPowerInteractor,
+                        mShadeInteractor,
                         mScope,
                         mSceneInteractorLazy
                     )));

@@ -49,6 +49,7 @@ import com.android.systemui.biometrics.ui.view.UdfpsTouchOverlay
 import com.android.systemui.biometrics.ui.viewmodel.DefaultUdfpsTouchOverlayViewModel
 import com.android.systemui.biometrics.ui.viewmodel.DeviceEntryUdfpsTouchOverlayViewModel
 import com.android.systemui.biometrics.ui.viewmodel.PromptUdfpsTouchOverlayViewModel
+import com.android.systemui.brightness.domain.interactor.BrightnessMirrorShowingInteractor
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
 import com.android.systemui.keyguard.shared.model.KeyguardState
@@ -93,6 +94,7 @@ constructor(
     private val promptUdfpsTouchOverlayViewModel: Lazy<PromptUdfpsTouchOverlayViewModel>,
     private val udfpsOverlayInteractor: UdfpsOverlayInteractor,
     private val powerInteractor: PowerInteractor,
+    private val brightnessMirrorShowingInteractor: BrightnessMirrorShowingInteractor,
     private val shadeInteractor: ShadeInteractor,
     @Application private val scope: CoroutineScope,
     sceneInteractor: Lazy<SceneInteractor>,
@@ -142,7 +144,8 @@ constructor(
     )
 
     private val udfpsHelper: UdfpsHelper? = if (useFrameworkDimming) {
-        UdfpsHelper(inflater.context, windowManager, shadeInteractor, requestReason)
+        UdfpsHelper(inflater.context, windowManager, shadeInteractor, requestReason,
+                brightnessMirrorShowingInteractor)
     } else {
         null
     }

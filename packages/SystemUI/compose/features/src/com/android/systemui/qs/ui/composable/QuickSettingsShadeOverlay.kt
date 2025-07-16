@@ -485,21 +485,6 @@ private fun ContentScope.QuickSettingsLayout(
                 enableRevealEffect = TileRevealFlag.isEnabled,
             )
 
-            val buildNumberViewModel =
-                rememberViewModel("QuickSettingsShadeOverlay.BuildNumber") {
-                    buildNumberViewModelFactory.create()
-                }
-
-            if (buildNumberViewModel.buildNumber != null) {
-                VerticalSeparator(QuickSettingsShade.Dimensions.ShortPadding)
-                BuildNumber(
-                    viewModel = buildNumberViewModel,
-                    modifier =
-                        Modifier.align(Alignment.Start)
-                            .padding(start = QuickSettingsShade.Dimensions.HorizontalPadding),
-                )
-            }
-
             VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
         }
     }

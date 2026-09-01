@@ -2198,6 +2198,25 @@ final class InstallPackageHelper {
             final int[] installedUsers;
             final int[] uninstalledUsers;
 
+            // Compute the restrict-update digest OUTSIDE mPm.mLock: it reads only the on-disk
+            // APK/splits, so it must not hold the global PM lock during file I/O.
+            byte[] restrictUpdateDigestBytes = null;
+            if (oldPackageState.getRestrictUpdateHash() != null
+                    && oldPackageState.isSystem()) {
+                try {
+                    final MessageDigest digest = MessageDigest.getInstance("SHA-512");
+                    updateDigest(digest, new File(parsedPackage.getBaseApkPath()));
+                    if (!ArrayUtils.isEmpty(parsedPackage.getSplitCodePaths())) {
+                        for (String path : parsedPackage.getSplitCodePaths()) {
+                            updateDigest(digest, new File(path));
+                        }
+                    }
+                    restrictUpdateDigestBytes = digest.digest();
+                } catch (NoSuchAlgorithmException | IOException e) {
+                    restrictUpdateDigestBytes = null; // re-thrown at the original site, in-lock
+                }
+            }
+
             synchronized (mPm.mLock) {
                 if (DEBUG_INSTALL) {
                     Slog.d(TAG,
@@ -2239,23 +2258,15 @@ final class InstallPackageHelper {
                 }
 
                 // don't allow a system upgrade unless the upgrade hash matches
+                // (digest computed above, before mPm.mLock was taken)
                 if (oldPackageState.getRestrictUpdateHash() != null
                         && oldPackageState.isSystem()) {
-                    final byte[] digestBytes;
-                    try {
-                        final MessageDigest digest = MessageDigest.getInstance("SHA-512");
-                        updateDigest(digest, new File(parsedPackage.getBaseApkPath()));
-                        if (!ArrayUtils.isEmpty(parsedPackage.getSplitCodePaths())) {
-                            for (String path : parsedPackage.getSplitCodePaths()) {
-                                updateDigest(digest, new File(path));
-                            }
-                        }
-                        digestBytes = digest.digest();
-                    } catch (NoSuchAlgorithmException | IOException e) {
+                    if (restrictUpdateDigestBytes == null) {
                         throw new PrepareFailure(INSTALL_FAILED_INVALID_APK,
                                 "Could not compute hash: " + pkgName11);
                     }
-                    if (!Arrays.equals(oldPackageState.getRestrictUpdateHash(), digestBytes)) {
+                    if (!Arrays.equals(oldPackageState.getRestrictUpdateHash(),
+                            restrictUpdateDigestBytes)) {
                         throw new PrepareFailure(INSTALL_FAILED_INVALID_APK,
                                 "New package fails restrict-update check: " + pkgName11);
                     }
@@ -2595,10 +2606,13 @@ final class InstallPackageHelper {
     private static void updateDigest(MessageDigest digest, File file) throws IOException {
         try (DigestInputStream digestStream =
                      new DigestInputStream(new FileInputStream(file), digest)) {
-            int length, total = 0;
-            while ((length = digestStream.read()) != -1) {
-                total += length;
-            } // just plow through the file
+            final byte[] buffer = new byte[8192];
+            // DigestInputStream.read(byte[]) calls digest.update(buffer, 0, n) per chunk, so the
+            // finalized digest is identical to the old per-byte loop -- but without the millions
+            // of one-byte read() syscalls this used to do under mPm.mLock.
+            while (digestStream.read(buffer) != -1) {
+                // just plow through the file
+            }
         }
     }
 

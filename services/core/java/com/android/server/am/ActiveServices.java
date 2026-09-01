@@ -9744,7 +9744,7 @@ public final class ActiveServices {
                                 }
 
                                 // Binding found, check the client procstate and the flag.
-                                final int clientUidState = mAm.getUidStateLocked(callingUid);
+                                final int clientUidState = mAm.getUidStateLocked(clientUid);
                                 final boolean boundByTop = clientUidState == PROCESS_STATE_TOP;
                                 final boolean boundByPersistentWithBal =
                                         clientUidState < PROCESS_STATE_TOP

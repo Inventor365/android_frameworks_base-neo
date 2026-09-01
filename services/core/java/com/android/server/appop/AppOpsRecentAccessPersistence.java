@@ -43,6 +43,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Objects;
 
 /**
@@ -264,12 +265,103 @@ final class AppOpsRecentAccessPersistence {
     }
 
     /**
-     * Write uidStates into an XML file on the disk. It's a complete dump from memory, the XML file
-     * will be re-written.
-     *
-     * @param uidStates The in-memory object that holds all AppOp recent access data.
+     * Detached, immutable snapshot of the recent-access data that {@link #writeRecentAccesses}
+     * serializes. Built under the AppOpsService lock by {@link #snapshotRecentAccesses}; every
+     * element is a primitive, an immutable String, or an immutable
+     * {@link AppOpsManager.AttributedOpEntry}, so it is safe to serialize with the lock released.
+     * Lists (not maps) are used so iteration order matches the live-tree walk exactly.
      */
-    void writeRecentAccesses(SparseArray<AppOpsService.UidState> uidStates) {
+    static final class RecentAccessSnapshot {
+        final ArrayList<PackageUidOpsSnapshot> packages = new ArrayList<>();
+    }
+
+    static final class PackageUidOpsSnapshot {
+        final String packageName;
+        final int uid;
+        final ArrayList<OpSnapshot> ops = new ArrayList<>();
+
+        PackageUidOpsSnapshot(String packageName, int uid) {
+            this.packageName = packageName;
+            this.uid = uid;
+        }
+    }
+
+    static final class OpSnapshot {
+        final int op;
+        final ArrayList<AttributedOpSnapshot> attributedOps = new ArrayList<>();
+
+        OpSnapshot(int op) {
+            this.op = op;
+        }
+    }
+
+    static final class AttributedOpSnapshot {
+        final String deviceId;
+        final String attributionTag;
+        final AppOpsManager.AttributedOpEntry entry;
+
+        AttributedOpSnapshot(String deviceId, String attributionTag,
+                AppOpsManager.AttributedOpEntry entry) {
+            this.deviceId = deviceId;
+            this.attributionTag = attributionTag;
+            this.entry = entry;
+        }
+    }
+
+    /**
+     * Build an immutable, detached snapshot of {@code uidStates} for later serialization.
+     *
+     * <p>The caller MUST hold the AppOpsService lock (synchronized on AppOpsService.this) because
+     * this reads live UidState/Op state and calls
+     * {@link AttributedOp#createAttributedOpEntryLocked()}. The returned snapshot shares no mutable
+     * state with the live tree and can be serialized with the lock released.
+     */
+    RecentAccessSnapshot snapshotRecentAccesses(SparseArray<AppOpsService.UidState> uidStates) {
+        RecentAccessSnapshot snapshot = new RecentAccessSnapshot();
+
+        for (int uidIndex = 0; uidIndex < uidStates.size(); uidIndex++) {
+            AppOpsService.UidState uidState = uidStates.valueAt(uidIndex);
+            int uid = uidState.uid;
+
+            for (int pkgIndex = 0; pkgIndex < uidState.pkgOps.size(); pkgIndex++) {
+                String packageName = uidState.pkgOps.keyAt(pkgIndex);
+                AppOpsService.Ops ops = uidState.pkgOps.valueAt(pkgIndex);
+
+                PackageUidOpsSnapshot pkgSnapshot = new PackageUidOpsSnapshot(packageName, uid);
+                snapshot.packages.add(pkgSnapshot);
+
+                for (int opIndex = 0; opIndex < ops.size(); opIndex++) {
+                    AppOpsService.Op op = ops.valueAt(opIndex);
+
+                    OpSnapshot opSnapshot = new OpSnapshot(op.op);
+                    pkgSnapshot.ops.add(opSnapshot);
+
+                    for (int deviceIndex = 0; deviceIndex < op.mDeviceAttributedOps.size();
+                            deviceIndex++) {
+                        String deviceId = op.mDeviceAttributedOps.keyAt(deviceIndex);
+                        ArrayMap<String, AttributedOp> attributedOps =
+                                op.mDeviceAttributedOps.valueAt(deviceIndex);
+
+                        for (int attrIndex = 0; attrIndex < attributedOps.size(); attrIndex++) {
+                            String attributionTag = attributedOps.keyAt(attrIndex);
+                            AppOpsManager.AttributedOpEntry entry =
+                                    attributedOps.valueAt(attrIndex).createAttributedOpEntryLocked();
+                            opSnapshot.attributedOps.add(
+                                    new AttributedOpSnapshot(deviceId, attributionTag, entry));
+                        }
+                    }
+                }
+            }
+        }
+
+        return snapshot;
+    }
+
+    /**
+     * Serialize a {@link RecentAccessSnapshot} to disk. Runs WITHOUT the AppOpsService lock held
+     * (only the detached snapshot is read), so the AtomicFile fsync no longer blocks app-op checks.
+     */
+    void writeRecentAccesses(RecentAccessSnapshot snapshot) {
         synchronized (mRecentAccessesFile) {
             FileOutputStream stream;
             try {
@@ -285,33 +377,27 @@ final class AppOpsRecentAccessPersistence {
                 out.startTag(null, TAG_APP_OPS);
                 out.attributeInt(null, "v", CURRENT_VERSION);
 
-                for (int uidIndex = 0; uidIndex < uidStates.size(); uidIndex++) {
-                    AppOpsService.UidState uidState = uidStates.valueAt(uidIndex);
-                    int uid = uidState.uid;
+                for (int pkgIndex = 0; pkgIndex < snapshot.packages.size(); pkgIndex++) {
+                    PackageUidOpsSnapshot pkgOps = snapshot.packages.get(pkgIndex);
 
-                    for (int pkgIndex = 0; pkgIndex < uidState.pkgOps.size(); pkgIndex++) {
-                        String packageName = uidState.pkgOps.keyAt(pkgIndex);
-                        AppOpsService.Ops ops = uidState.pkgOps.valueAt(pkgIndex);
+                    out.startTag(null, TAG_PACKAGE);
+                    out.attribute(null, ATTR_NAME, pkgOps.packageName);
+                    out.startTag(null, TAG_UID);
+                    out.attributeInt(null, ATTR_NAME, pkgOps.uid);
 
-                        out.startTag(null, TAG_PACKAGE);
-                        out.attribute(null, ATTR_NAME, packageName);
-                        out.startTag(null, TAG_UID);
-                        out.attributeInt(null, ATTR_NAME, uid);
+                    for (int opIndex = 0; opIndex < pkgOps.ops.size(); opIndex++) {
+                        OpSnapshot op = pkgOps.ops.get(opIndex);
 
-                        for (int opIndex = 0; opIndex < ops.size(); opIndex++) {
-                            AppOpsService.Op op = ops.valueAt(opIndex);
+                        out.startTag(null, TAG_OP);
+                        out.attributeInt(null, ATTR_NAME, op.op);
 
-                            out.startTag(null, TAG_OP);
-                            out.attributeInt(null, ATTR_NAME, op.op);
+                        writeDeviceAttributedOps(out, op);
 
-                            writeDeviceAttributedOps(out, op);
-
-                            out.endTag(null, TAG_OP);
-                        }
-
-                        out.endTag(null, TAG_UID);
-                        out.endTag(null, TAG_PACKAGE);
+                        out.endTag(null, TAG_OP);
                     }
+
+                    out.endTag(null, TAG_UID);
+                    out.endTag(null, TAG_PACKAGE);
                 }
 
                 out.endTag(null, TAG_APP_OPS);
@@ -324,79 +410,75 @@ final class AppOpsRecentAccessPersistence {
         }
     }
 
-    private void writeDeviceAttributedOps(TypedXmlSerializer out, AppOpsService.Op op)
+    private void writeDeviceAttributedOps(TypedXmlSerializer out, OpSnapshot op)
             throws IOException {
-        for (String deviceId : op.mDeviceAttributedOps.keySet()) {
-            ArrayMap<String, AttributedOp> attributedOps =
-                    op.mDeviceAttributedOps.get(deviceId);
+        for (int i = 0; i < op.attributedOps.size(); i++) {
+            AttributedOpSnapshot attributed = op.attributedOps.get(i);
+            String deviceId = attributed.deviceId;
+            String attributionTag = attributed.attributionTag;
+            AppOpsManager.AttributedOpEntry attributedOpEntry = attributed.entry;
 
-            for (int attrIndex = 0; attrIndex < attributedOps.size(); attrIndex++) {
-                String attributionTag = attributedOps.keyAt(attrIndex);
-                AppOpsManager.AttributedOpEntry attributedOpEntry =
-                        attributedOps.valueAt(attrIndex).createAttributedOpEntryLocked();
+            final ArraySet<Long> keys = attributedOpEntry.collectKeys();
+            for (int k = 0; k < keys.size(); k++) {
+                final long key = keys.valueAt(k);
 
-                final ArraySet<Long> keys = attributedOpEntry.collectKeys();
-                for (int k = 0; k < keys.size(); k++) {
-                    final long key = keys.valueAt(k);
+                final int uidState = AppOpsManager.extractUidStateFromKey(key);
+                final int flags = AppOpsManager.extractFlagsFromKey(key);
 
-                    final int uidState = AppOpsManager.extractUidStateFromKey(key);
-                    final int flags = AppOpsManager.extractFlagsFromKey(key);
+                final long accessTime =
+                        attributedOpEntry.getLastAccessTime(uidState, uidState, flags);
+                final long rejectTime =
+                        attributedOpEntry.getLastRejectTime(uidState, uidState, flags);
+                final long accessDuration =
+                        attributedOpEntry.getLastDuration(uidState, uidState, flags);
 
-                    final long accessTime =
-                            attributedOpEntry.getLastAccessTime(uidState, uidState, flags);
-                    final long rejectTime =
-                            attributedOpEntry.getLastRejectTime(uidState, uidState, flags);
-                    final long accessDuration =
-                            attributedOpEntry.getLastDuration(uidState, uidState, flags);
+                // Proxy information for rejections is not backed up
+                final AppOpsManager.OpEventProxyInfo proxy =
+                        attributedOpEntry.getLastProxyInfo(uidState, uidState, flags);
 
-                    // Proxy information for rejections is not backed up
-                    final AppOpsManager.OpEventProxyInfo proxy =
-                            attributedOpEntry.getLastProxyInfo(uidState, uidState, flags);
-
-                    if (accessTime <= 0 && rejectTime <= 0 && accessDuration <= 0
-                            && proxy == null) {
-                        continue;
-                    }
-
-                    out.startTag(null, TAG_ATTRIBUTION_OP);
-                    if (attributionTag != null) {
-                        out.attribute(null, ATTR_ID, attributionTag);
-                    }
-                    out.attributeLong(null, ATTR_NAME, key);
-
-                    if (!Objects.equals(
-                            deviceId, VirtualDeviceManager.PERSISTENT_DEVICE_ID_DEFAULT)) {
-                        out.attribute(null, ATTR_DEVICE_ID, deviceId);
-                    }
-                    if (accessTime > 0) {
-                        out.attributeLong(null, ATTR_ACCESS_TIME, accessTime);
-                    }
-                    if (rejectTime > 0) {
-                        out.attributeLong(null, ATTR_REJECT_TIME, rejectTime);
-                    }
-                    if (accessDuration > 0) {
-                        out.attributeLong(null, ATTR_ACCESS_DURATION, accessDuration);
-                    }
-                    if (proxy != null) {
-                        out.attributeInt(null, ATTR_PROXY_UID, proxy.getUid());
-
-                        if (proxy.getPackageName() != null) {
-                            out.attribute(null, ATTR_PROXY_PACKAGE, proxy.getPackageName());
-                        }
-                        if (proxy.getAttributionTag() != null) {
-                            out.attribute(
-                                    null, ATTR_PROXY_ATTRIBUTION_TAG, proxy.getAttributionTag());
-                        }
-                        if (proxy.getDeviceId() != null
-                                && !Objects.equals(
-                                        proxy.getDeviceId(),
-                                        VirtualDeviceManager.PERSISTENT_DEVICE_ID_DEFAULT)) {
-                            out.attribute(null, ATTR_PROXY_DEVICE_ID, proxy.getDeviceId());
-                        }
-                    }
-
-                    out.endTag(null, TAG_ATTRIBUTION_OP);
+                if (accessTime <= 0 && rejectTime <= 0 && accessDuration <= 0
+                        && proxy == null) {
+                    continue;
                 }
+
+                out.startTag(null, TAG_ATTRIBUTION_OP);
+                if (attributionTag != null) {
+                    out.attribute(null, ATTR_ID, attributionTag);
+                }
+                out.attributeLong(null, ATTR_NAME, key);
+
+                if (!Objects.equals(
+                        deviceId, VirtualDeviceManager.PERSISTENT_DEVICE_ID_DEFAULT)) {
+                    out.attribute(null, ATTR_DEVICE_ID, deviceId);
+                }
+                if (accessTime > 0) {
+                    out.attributeLong(null, ATTR_ACCESS_TIME, accessTime);
+                }
+                if (rejectTime > 0) {
+                    out.attributeLong(null, ATTR_REJECT_TIME, rejectTime);
+                }
+                if (accessDuration > 0) {
+                    out.attributeLong(null, ATTR_ACCESS_DURATION, accessDuration);
+                }
+                if (proxy != null) {
+                    out.attributeInt(null, ATTR_PROXY_UID, proxy.getUid());
+
+                    if (proxy.getPackageName() != null) {
+                        out.attribute(null, ATTR_PROXY_PACKAGE, proxy.getPackageName());
+                    }
+                    if (proxy.getAttributionTag() != null) {
+                        out.attribute(
+                                null, ATTR_PROXY_ATTRIBUTION_TAG, proxy.getAttributionTag());
+                    }
+                    if (proxy.getDeviceId() != null
+                            && !Objects.equals(
+                                    proxy.getDeviceId(),
+                                    VirtualDeviceManager.PERSISTENT_DEVICE_ID_DEFAULT)) {
+                        out.attribute(null, ATTR_PROXY_DEVICE_ID, proxy.getDeviceId());
+                    }
+                }
+
+                out.endTag(null, TAG_ATTRIBUTION_OP);
             }
         }
     }

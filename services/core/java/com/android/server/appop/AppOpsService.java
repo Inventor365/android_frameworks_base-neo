@@ -5667,9 +5667,13 @@ public class AppOpsService extends IAppOpsService.Stub {
     @VisibleForTesting
     void writeRecentAccesses() {
         if (deviceAwareAppOpNewSchemaEnabled()) {
+            // Snapshot the live state under the global AppOps lock, then serialize + fsync WITHOUT
+            // holding it, so the disk write no longer blocks every app-op check on `this`.
+            final AppOpsRecentAccessPersistence.RecentAccessSnapshot recentAccessSnapshot;
             synchronized (this) {
-                mRecentAccessPersistence.writeRecentAccesses(mUidStates);
+                recentAccessSnapshot = mRecentAccessPersistence.snapshotRecentAccesses(mUidStates);
             }
+            mRecentAccessPersistence.writeRecentAccesses(recentAccessSnapshot);
             mHistoricalRegistry.writeAndClearDiscreteHistory();
             return;
         }

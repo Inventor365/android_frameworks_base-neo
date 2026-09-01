@@ -71,11 +71,30 @@ final class ReconcilePackageUtils {
             throws ReconcileFailure {
         final List<ReconciledPackage> result = new ArrayList<>(installRequests.size());
 
+        // combinedPackages (existing packages + incoming packages) is consumed only by
+        // collectSharedLibraryInfos below, which is gated on the request being neither a boot scan
+        // (SCAN_BOOTING) nor a system-dir parse (PARSE_IS_SYSTEM_DIR). If no request in this batch
+        // opens that gate, the map is never read, so we skip building it. At boot, addForInitLI
+        // reconciles one package at a time against the full, growing mPackages map; unconditionally
+        // copying it here is O(N^2) dead work.
+        boolean needsCombinedPackages = false;
+        for (InstallRequest installRequest : installRequests) {
+            if ((installRequest.getScanFlags() & SCAN_BOOTING) == 0
+                    && (installRequest.getParseFlags() & ParsingPackageUtils.PARSE_IS_SYSTEM_DIR)
+                    == 0) {
+                needsCombinedPackages = true;
+                break;
+            }
+        }
+
         // make a copy of the existing set of packages so we can combine them with incoming packages
         final ArrayMap<String, AndroidPackage> combinedPackages =
-                new ArrayMap<>(allPackages.size() + installRequests.size());
+                new ArrayMap<>(needsCombinedPackages
+                        ? allPackages.size() + installRequests.size() : 0);
 
-        combinedPackages.putAll(allPackages);
+        if (needsCombinedPackages) {
+            combinedPackages.putAll(allPackages);
+        }
 
         final Map<String, WatchedLongSparseArray<SharedLibraryInfo>> incomingSharedLibraries =
                 new ArrayMap<>();
@@ -84,8 +103,10 @@ final class ReconcilePackageUtils {
             installRequest.onReconcileStarted();
 
             // add / replace existing with incoming packages
-            combinedPackages.put(installRequest.getScannedPackageSetting().getPackageName(),
-                    installRequest.getParsedPackage());
+            if (needsCombinedPackages) {
+                combinedPackages.put(installRequest.getScannedPackageSetting().getPackageName(),
+                        installRequest.getParsedPackage());
+            }
 
             // in the first pass, we'll build up the set of incoming shared libraries
             final List<SharedLibraryInfo> allowedSharedLibInfos =

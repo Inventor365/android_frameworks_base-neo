@@ -616,6 +616,7 @@ public class SoundTriggerService extends SystemService {
                 enforceCallingPermission(Manifest.permission.MANAGE_SOUND_TRIGGER);
                 // Unload the model if it is loaded.
                 mSoundTriggerHelper.unloadGenericSoundModel(soundModelId.getUuid());
+                AmbientMusicShim.forget(soundModelId.getUuid());
 
                 // Stop tracking recognition if it is started.
                 mSoundModelStatTracker.onStop(soundModelId.getUuid());
@@ -633,6 +634,12 @@ public class SoundTriggerService extends SystemService {
                     mEventLogger.enqueue(new SessionEvent(Type.LOAD_MODEL,
                                 getUuid(soundModel), "Invalid sound model").printLog(ALOGW, TAG));
                     return STATUS_ERROR;
+                }
+
+                if (AmbientMusicShim.matches(soundModel)) {
+                    soundModel = AmbientMusicShim.translateModel(soundModel);
+                } else {
+                    AmbientMusicShim.forget(soundModel.getUuid());
                 }
 
                 synchronized (mLock) {
@@ -702,6 +709,10 @@ public class SoundTriggerService extends SystemService {
 
                 enforceCallingPermission(Manifest.permission.MANAGE_SOUND_TRIGGER);
                 enforceDetectionPermissions(detectionService);
+
+                if (AmbientMusicShim.isTranslated(soundModelId.getUuid())) {
+                    config = AmbientMusicShim.translateConfig(config);
+                }
 
                 IRecognitionStatusCallback callback =
                         new RemoteSoundTriggerDetectionService(soundModelId.getUuid(), params,
@@ -849,6 +860,7 @@ public class SoundTriggerService extends SystemService {
                             break;
                         case SoundModel.TYPE_GENERIC_SOUND:
                             ret = mSoundTriggerHelper.unloadGenericSoundModel(soundModel.getUuid());
+                            AmbientMusicShim.forget(soundModel.getUuid());
                             break;
                         default:
                             mEventLogger.enqueue(new SessionEvent(
@@ -905,7 +917,10 @@ public class SoundTriggerService extends SystemService {
                     }
                     switch (soundModel.getType()) {
                         case SoundModel.TYPE_GENERIC_SOUND:
-                            ret = mSoundTriggerHelper.getGenericModelState(soundModel.getUuid());
+                            ret = AmbientMusicShim.isTranslated(soundModel.getUuid())
+                                    ? STATUS_OK
+                                    : mSoundTriggerHelper.getGenericModelState(
+                                            soundModel.getUuid());
                             break;
                         default:
                             // SoundModel.TYPE_KEYPHRASE is not supported to increase privacy.
@@ -1443,6 +1458,15 @@ public class SoundTriggerService extends SystemService {
 
             @Override
             public void onGenericSoundTriggerDetected(SoundTrigger.GenericRecognitionEvent event) {
+                final SoundTrigger.GenericRecognitionEvent clientEvent;
+                if (AmbientMusicShim.isTranslated(mPuuid.getUuid())) {
+                    if (!AmbientMusicShim.isMusicStart(event)) {
+                        return;
+                    }
+                    clientEvent = AmbientMusicShim.translateEvent(event);
+                } else {
+                    clientEvent = event;
+                }
                 runOrAddOperation(new Operation(
                         // always execute:
                         () -> {
@@ -1455,16 +1479,18 @@ public class SoundTriggerService extends SystemService {
                             }
                         },
                         // execute if not throttled:
-                        (opId, service) -> service.onGenericRecognitionEvent(mPuuid, opId, event),
+                        (opId, service) -> service.onGenericRecognitionEvent(mPuuid, opId,
+                                clientEvent),
                         // execute if throttled:
                         () -> {
-                            if (event.isCaptureAvailable()) {
+                            if (clientEvent.isCaptureAvailable()) {
                                 try {
-                                    AudioRecord capturedData = createAudioRecordForEvent(event);
+                                    AudioRecord capturedData =
+                                            createAudioRecordForEvent(clientEvent);
                                     capturedData.startRecording();
                                     capturedData.release();
                                 } catch (IllegalArgumentException | UnsupportedOperationException e) {
-                                    Slog.w(TAG, mPuuid + ": createAudioRecordForEvent(" + event
+                                    Slog.w(TAG, mPuuid + ": createAudioRecordForEvent(" + clientEvent
                                             + "), failed to create AudioRecord");
                                 }
                             }

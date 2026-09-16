@@ -20,10 +20,15 @@ import android.hardware.soundtrigger.SoundTrigger.GenericRecognitionEvent;
 import android.hardware.soundtrigger.SoundTrigger.GenericSoundModel;
 import android.hardware.soundtrigger.SoundTrigger.RecognitionConfig;
 import android.media.AudioFormat;
+import android.os.Handler;
+import android.os.SystemClock;
 import android.os.SystemProperties;
+
+import com.android.internal.os.BackgroundThread;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,6 +67,22 @@ final class AmbientMusicShim {
 
     private static final Set<UUID> sTranslatedModels = ConcurrentHashMap.newKeySet();
 
+    private static final Map<UUID, Long> sLastNotified = new ConcurrentHashMap<>();
+
+    private static final Map<UUID, Long> sLastEventSeen = new ConcurrentHashMap<>();
+
+    /** Re-arms a model whose engine has gone quiet. */
+    interface Rearmer {
+        void rearm(UUID modelUuid);
+    }
+
+    private static volatile Rearmer sRearmer;
+
+    /** Re-arming blocks on the HAL, which is wedged whenever this runs. Keep it off main. */
+    private static final Handler sHandler = new Handler(BackgroundThread.get().getLooper());
+
+    private static final Runnable sSweep = AmbientMusicShim::sweep;
+
     private AmbientMusicShim() {
     }
 
@@ -92,11 +113,63 @@ final class AmbientMusicShim {
     static void forget(UUID modelUuid) {
         if (modelUuid != null) {
             sTranslatedModels.remove(modelUuid);
+            sLastNotified.remove(modelUuid);
+            sLastEventSeen.remove(modelUuid);
+        }
+        if (sTranslatedModels.isEmpty()) {
+            sHandler.removeCallbacks(sSweep);
+        }
+    }
+
+    static void setRearmer(Rearmer rearmer) {
+        sRearmer = rearmer;
+    }
+
+    /** Every event counts as liveness, including the ones held back by the cooldown. */
+    static void noteEvent(UUID modelUuid) {
+        if (modelUuid != null) {
+            sLastEventSeen.put(modelUuid, SystemClock.elapsedRealtime());
+        }
+    }
+
+    /**
+     * The engine can come back from an error with the model loaded but not listening, and nothing
+     * below tells us about it. Silence past the timeout is the only symptom available.
+     */
+    static boolean isStale(UUID modelUuid) {
+        Long last = sLastEventSeen.get(modelUuid);
+        if (last == null) {
+            return false;
+        }
+        long timeoutMs = SystemProperties.getInt("persist.sys.ambient_music_stale_ms", 300000);
+        return SystemClock.elapsedRealtime() - last > timeoutMs;
+    }
+
+    private static void scheduleSweep() {
+        long periodMs = SystemProperties.getInt("persist.sys.ambient_music_sweep_ms", 60000);
+        sHandler.removeCallbacks(sSweep);
+        sHandler.postDelayed(sSweep, periodMs);
+    }
+
+    private static void sweep() {
+        Rearmer rearmer = sRearmer;
+        if (rearmer != null) {
+            for (UUID modelUuid : sTranslatedModels) {
+                if (isStale(modelUuid)) {
+                    noteEvent(modelUuid);
+                    rearmer.rearm(modelUuid);
+                }
+            }
+        }
+        if (!sTranslatedModels.isEmpty()) {
+            scheduleSweep();
         }
     }
 
     static GenericSoundModel translateModel(GenericSoundModel soundModel) {
         sTranslatedModels.add(soundModel.getUuid());
+        noteEvent(soundModel.getUuid());
+        scheduleSweep();
         return new GenericSoundModel(soundModel.getUuid(), QC_ACD_VENDOR_UUID,
                 soundModel.getData(), soundModel.getVersion());
     }
@@ -127,10 +200,28 @@ final class AmbientMusicShim {
     }
 
     /**
+     * Clients ask the detection model to stay quiet for a while after a song is identified. The
+     * ACD engine has no such control, so the events are held back here instead.
+     */
+    static boolean shouldNotify(UUID modelUuid, GenericRecognitionEvent event) {
+        if (!isMusicStart(event)) {
+            return false;
+        }
+        long cooldownMs = SystemProperties.getInt("persist.sys.ambient_music_cooldown_ms", 45000);
+        long now = SystemClock.elapsedRealtime();
+        Long last = sLastNotified.get(modelUuid);
+        if (last != null && now - last < cooldownMs) {
+            return false;
+        }
+        sLastNotified.put(modelUuid, now);
+        return true;
+    }
+
+    /**
      * The engine reports music continuously once it latches on. Only the transition into music is
      * worth waking the client for.
      */
-    static boolean isMusicStart(GenericRecognitionEvent event) {
+    private static boolean isMusicStart(GenericRecognitionEvent event) {
         byte[] data = event.data;
         if (data == null) {
             return false;

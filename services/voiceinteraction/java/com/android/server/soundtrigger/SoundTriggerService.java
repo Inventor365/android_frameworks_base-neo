@@ -523,9 +523,36 @@ public class SoundTriggerService extends SystemService {
         private final EventLogger mEventLogger;
         private final MyAppOpsListener mAppOpsListener;
 
+        /**
+         * Recreates the engine for a model that stopped reporting. The client is left untouched,
+         * so a recovered model keeps delivering to whoever was already listening.
+         */
+        private void rearmAmbientMusic(UUID modelUuid) {
+            synchronized (mLock) {
+                SoundModel soundModel = mLoadedModels.get(modelUuid);
+                if (!(soundModel instanceof GenericSoundModel)) {
+                    return;
+                }
+                IRecognitionStatusCallback callback;
+                synchronized (mCallbacksLock) {
+                    callback = mCallbacks.get(modelUuid);
+                }
+                if (callback == null) {
+                    return;
+                }
+                Slog.w(TAG, "Ambient music model " + modelUuid + " went quiet, re-arming");
+                mSoundTriggerHelper.stopGenericRecognition(modelUuid, callback);
+                mSoundTriggerHelper.unloadGenericSoundModel(modelUuid);
+                mSoundTriggerHelper.startGenericRecognition(modelUuid,
+                        (GenericSoundModel) soundModel, callback,
+                        AmbientMusicShim.translateConfig(null), false);
+            }
+        }
+
         SoundTriggerSessionStub(@NonNull IBinder client,
                 SoundTriggerHelper soundTriggerHelper, EventLogger eventLogger) {
             mSoundTriggerHelper = soundTriggerHelper;
+            AmbientMusicShim.setRearmer(this::rearmAmbientMusic);
             mClient = client;
             mOriginatorIdentity = IdentityContext.getNonNull();
             mEventLogger = eventLogger;
@@ -917,10 +944,14 @@ public class SoundTriggerService extends SystemService {
                     }
                     switch (soundModel.getType()) {
                         case SoundModel.TYPE_GENERIC_SOUND:
-                            ret = AmbientMusicShim.isTranslated(soundModel.getUuid())
-                                    ? STATUS_OK
-                                    : mSoundTriggerHelper.getGenericModelState(
-                                            soundModel.getUuid());
+                            if (AmbientMusicShim.isTranslated(soundModel.getUuid())) {
+                                // A dead model is the client's cue to reload it for us.
+                                ret = AmbientMusicShim.isStale(soundModel.getUuid())
+                                        ? STATUS_DEAD_OBJECT : STATUS_OK;
+                            } else {
+                                ret = mSoundTriggerHelper.getGenericModelState(
+                                        soundModel.getUuid());
+                            }
                             break;
                         default:
                             // SoundModel.TYPE_KEYPHRASE is not supported to increase privacy.
@@ -1460,7 +1491,8 @@ public class SoundTriggerService extends SystemService {
             public void onGenericSoundTriggerDetected(SoundTrigger.GenericRecognitionEvent event) {
                 final SoundTrigger.GenericRecognitionEvent clientEvent;
                 if (AmbientMusicShim.isTranslated(mPuuid.getUuid())) {
-                    if (!AmbientMusicShim.isMusicStart(event)) {
+                    AmbientMusicShim.noteEvent(mPuuid.getUuid());
+                    if (!AmbientMusicShim.shouldNotify(mPuuid.getUuid(), event)) {
                         return;
                     }
                     clientEvent = AmbientMusicShim.translateEvent(event);

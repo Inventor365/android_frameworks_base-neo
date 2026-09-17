@@ -913,6 +913,8 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
 
     ArrayList<ComponentName> mDisabledComponentsList;
 
+    ArrayList<ComponentName> mForceEnabledComponentsList;
+
     static final int SEND_PENDING_BROADCAST = 1;
     // public static final int UNUSED = 5;
     static final int POST_INSTALL = 9;
@@ -2467,6 +2469,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
 
             // Disable components marked for disabling at build-time
             mDisabledComponentsList = new ArrayList<ComponentName>();
+            mForceEnabledComponentsList = new ArrayList<ComponentName>();
             enableComponents(mContext.getResources().getStringArray(
                     com.android.internal.R.array.config_deviceDisabledComponents), false);
             enableComponents(mContext.getResources().getStringArray(
@@ -2681,7 +2684,9 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
         // Disable or enable components marked at build-time
         for (String name : components) {
             ComponentName cn = ComponentName.unflattenFromString(name);
-            if (!enable) {
+            if (enable) {
+                mForceEnabledComponentsList.add(cn);
+            } else {
                 mDisabledComponentsList.add(cn);
             }
             Slog.v(TAG, "Changing enabled state of " + name + " to " + enable);
@@ -4196,6 +4201,31 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                     || newState == COMPONENT_ENABLED_STATE_DISABLED_USER
                     || newState == COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED)) {
                 throw new IllegalArgumentException("Invalid new component state: " + newState);
+            }
+        }
+        // Components marked for forced-enable at build-time stay enabled
+        if (mForceEnabledComponentsList != null && !mForceEnabledComponentsList.isEmpty()) {
+            final List<ComponentEnabledSetting> kept = new ArrayList<>(settings.size());
+            for (int i = 0; i < targetSize; i++) {
+                final ComponentEnabledSetting setting = settings.get(i);
+                final int newState = setting.getEnabledState();
+                if (setting.isComponent()
+                        && (newState == COMPONENT_ENABLED_STATE_DISABLED
+                                || newState == COMPONENT_ENABLED_STATE_DISABLED_USER
+                                || newState == COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED)
+                        && mForceEnabledComponentsList.contains(setting.getComponentName())) {
+                    Slog.d(TAG, "Ignoring attempt to disable force-enabled component "
+                            + setting.getComponentName().flattenToString());
+                    continue;
+                }
+                kept.add(setting);
+            }
+            if (kept.size() != targetSize) {
+                if (kept.isEmpty()) {
+                    return;
+                }
+                setEnabledSettings(kept, userId, callingPackage);
+                return;
             }
         }
         if (targetSize > 1) {

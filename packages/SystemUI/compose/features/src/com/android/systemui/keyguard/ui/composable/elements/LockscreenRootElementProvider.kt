@@ -110,7 +110,7 @@ constructor(
                     )
 
                 with(scopeFactory.create(contentScope, innerContext)) {
-                    LockscreenSceneLayout(viewModel.isUdfpsSupported)
+                    LockscreenSceneLayout()
                 }
             }
         }
@@ -191,7 +191,6 @@ object LockIconAlignmentLines {
  */
 @Composable
 private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
-    isUdfpsSupported: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Layout(
@@ -238,14 +237,11 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
                 constraints = Constraints.fixedWidth(constraints.maxWidth)
             )
 
-        var upperRegionMaxHeight = lockIconBounds.top - statusBarPlaceable.measuredHeight
-        var lowerRegionMaxHeight = constraints.maxHeight - lockIconBounds.bottom
-
-        if (!isUdfpsSupported) {
-            upperRegionMaxHeight -= ambientIndicationPlaceable.measuredHeight
-        } else {
-            lowerRegionMaxHeight -= ambientIndicationPlaceable.measuredHeight
-        }
+        val upperRegionMaxHeight =
+            lockIconBounds.top -
+                statusBarPlaceable.measuredHeight -
+                ambientIndicationPlaceable.measuredHeight
+        val lowerRegionMaxHeight = constraints.maxHeight - lockIconBounds.bottom
 
         val upperRegionPlaceable =
             upperRegionMeasurable.measure(
@@ -274,19 +270,11 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             upperRegionPlaceable.placeRelative(0, statusBarPlaceable.measuredHeight)
             lockIconPlaceable.place(lockIconBounds.left, lockIconBounds.top)
 
-            if (isUdfpsSupported) {
-                // Place below UDFPS icon.
-                ambientIndicationPlaceable.placeRelative(
-                    0,
-                    lockIconBounds.top + lockIconPlaceable.measuredHeight,
-                )
-            } else {
-                // Place above lock icon.
-                ambientIndicationPlaceable.placeRelative(
-                    0,
-                    lockIconBounds.top - ambientIndicationPlaceable.measuredHeight,
-                )
-            }
+            // Place above lock icon.
+            ambientIndicationPlaceable.placeRelative(
+                0,
+                lockIconBounds.top - ambientIndicationPlaceable.measuredHeight,
+            )
 
             lowerRegionPlaceable.place(
                 0,

@@ -69,6 +69,7 @@ public class TileServices extends IQSService.Stub {
     private static final String TAG = "TileServices";
     private static final int META_DATA_QUERY_FLAGS = PackageManager.GET_META_DATA
             | PackageManager.MATCH_UNINSTALLED_PACKAGES
+            | PackageManager.MATCH_DISABLED_COMPONENTS
             | PackageManager.MATCH_DIRECT_BOOT_UNAWARE
             | PackageManager.MATCH_DIRECT_BOOT_AWARE;
 
@@ -200,6 +201,9 @@ public class TileServices extends IQSService.Stub {
         try {
             ServiceInfo serviceInfo = mPackageManagerAdapter.getServiceInfo(
                     tile.getComponent(), META_DATA_QUERY_FLAGS, tile.getUser());
+            if (serviceInfo == null) {
+                throw new SecurityException("Component not found: " + tile.getComponent());
+            }
             int uid = serviceInfo.getUid();
             if (Binder.getCallingUid() != uid) {
                 throw new SecurityException("Component outside caller's uid");

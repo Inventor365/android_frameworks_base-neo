@@ -21,6 +21,7 @@ import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.drawable.GradientDrawable
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.testing.TestableLooper.RunWithLooper
@@ -39,6 +40,7 @@ import com.android.systemui.statusbar.notification.NotificationUtils
 import com.android.systemui.statusbar.notification.SourceType
 import com.android.systemui.util.mockito.mock
 import com.google.common.truth.Truth.assertThat
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
@@ -166,6 +168,49 @@ class ActivatableNotificationViewTest : SysuiTestCase() {
 
         mView.setOnKeyguard(true)
         assertThat(mView.hasBlur()).isFalse()
+    }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_NOTIFICATION_ROW_TRANSPARENCY,
+        Flags.FLAG_NOTIFICATION_BACKGROUND_TINT_OPTIMIZATION,
+    )
+    @DisableFlags(Flags.FLAG_LOCKSCREEN_BLUR_FOR_NOTIFICATIONS)
+    fun normalTintRemainsVisibleWhenBlurSupportChanges() {
+        mView = TestActivatableNotificationView(mContext, useRealNotificationBackgroundView = true)
+        mView.setOnKeyguard(false)
+
+        mView.setIsBlurSupported(true)
+        assertThat(mView.currentBackgroundTint).isEqualTo(mSurfaceEffectColor)
+        assertThat(backgroundFillColor()).isEqualTo(mSurfaceEffectColor)
+
+        mView.setIsBlurSupported(false)
+        assertThat(backgroundFillColor()).isEqualTo(mOpaqueColor)
+
+        mView.setIsBlurSupported(true)
+        assertThat(backgroundFillColor()).isEqualTo(mSurfaceEffectColor)
+    }
+
+    private fun backgroundFillColor(): Int =
+        (mView.mNotificationBackgroundView.baseBackgroundLayer as GradientDrawable)
+            .color!!.defaultColor
+
+    @Test
+    @EnableFlags(Flags.FLAG_LOCKSCREEN_BLUR_FOR_NOTIFICATIONS)
+    fun disabledBlurNeedsNoMainThreadDuringInflation() {
+        val background = NotificationBackgroundView(mContext, null)
+        val failure = AtomicReference<Throwable>()
+        val inflationThread = Thread {
+            try {
+                background.setBlurBackgroundEnabled(false)
+            } catch (t: Throwable) {
+                failure.set(t)
+            }
+        }
+
+        inflationThread.start()
+        inflationThread.join()
+        assertThat(failure.get()).isNull()
     }
 
     @Test

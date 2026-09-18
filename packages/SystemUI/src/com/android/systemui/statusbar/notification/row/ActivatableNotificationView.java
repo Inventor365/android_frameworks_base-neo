@@ -18,7 +18,6 @@ package com.android.systemui.statusbar.notification.row;
 
 import static com.android.systemui.Flags.lockscreenBlurForNotifications;
 import static com.android.systemui.Flags.notificationAppearNonlinear;
-import static com.android.systemui.Flags.notificationBackgroundTintOptimization;
 import static com.android.systemui.Flags.notificationRowTransparency;
 import static com.android.systemui.Flags.physicalNotificationMovement;
 import static com.android.systemui.statusbar.notification.row.ExpandableView.ClipSide.BOTTOM;
@@ -347,10 +346,6 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     protected void setBackgroundTintColor(int color) {
         if (color != mCurrentBackgroundTint) {
             mCurrentBackgroundTint = color;
-            if (notificationBackgroundTintOptimization() && color == mNormalColor) {
-                // We don't need to tint a normal notification
-                color = 0;
-            }
             mBackgroundNormal.setTint(color);
         }
     }

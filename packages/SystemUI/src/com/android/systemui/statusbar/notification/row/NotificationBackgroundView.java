@@ -129,31 +129,28 @@ public class NotificationBackgroundView extends View implements Dumpable,
                         getActualHeight() - clipBottomAmount);
             }
 
+            // Keep the regular background while the blur region is suppressed to avoid a blank row.
+            Drawable background = mBackgroundBlurDrawable != null
+                    && mBackgroundBlurDrawable.getAlpha() > 0
+                    ? mBackgroundBlurDrawable : mBackground;
+
             if (!NotificationAddXOnHoverToDismiss.isEnabled()) {
-                if (mBackgroundBlurDrawable != null) {
-                    draw(canvas, mBackgroundBlurDrawable);
-                } else {
-                    draw(canvas, mBackground);
-                }
+                draw(canvas, background);
                 canvas.restore();
                 return;
             }
 
             Rect backgroundBounds = null;
-            if (mBackground != null || mBackgroundBlurDrawable != null
-                    || mDrawDismissButtonCutout) {
+            if (background != null || mDrawDismissButtonCutout) {
                 backgroundBounds = calculateBackgroundBounds();
             }
 
             if (mDrawDismissButtonCutout) {
                 canvas.clipPath(calculateDismissButtonCutoutPath(backgroundBounds));
             }
-            if (mBackgroundBlurDrawable != null) {
-                mBackgroundBlurDrawable.setBounds(backgroundBounds);
-                mBackgroundBlurDrawable.draw(canvas);
-            } else if (mBackground != null) {
-                mBackground.setBounds(backgroundBounds);
-                mBackground.draw(canvas);
+            if (background != null) {
+                background.setBounds(backgroundBounds);
+                background.draw(canvas);
             }
 
             canvas.restore();
@@ -336,6 +333,10 @@ public class NotificationBackgroundView extends View implements Dumpable,
         if (!lockscreenBlurForNotifications()) {
             return;
         }
+        // Safe off the UI thread when blur is disabled and no ViewRoot or blur drawable exists.
+        if (!enabled && mBackgroundBlurDrawable == null && mOnAttachStateChangeListener == null) {
+            return;
+        }
         Assert.isMainThread();
 
         if (enabled && mBackgroundBlurDrawable == null) {
@@ -355,10 +356,9 @@ public class NotificationBackgroundView extends View implements Dumpable,
                                 mBackgroundBlurDrawable.setXfermode(null);
                                 mBackgroundBlurDrawable.setCallback(
                                         NotificationBackgroundView.this);
-                                mBackgroundBlurDrawable.setColor(mNormalColor);
-                                if (mBlurRegionSuppressed) {
-                                    mBackgroundBlurDrawable.setAlpha(0);
-                                }
+                                mBackgroundBlurDrawable.setColor(mTintColor);
+                                mBackgroundBlurDrawable.setAlpha(
+                                        mBlurRegionSuppressed ? 0 : mDrawableAlpha);
 
                                 updateBackgroundRadii();
                                 invalidate();
@@ -384,6 +384,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
                 mBackgroundBlurDrawable.setCallback(null);
             }
             mBackgroundBlurDrawable = null;
+            invalidate();
         }
     }
 

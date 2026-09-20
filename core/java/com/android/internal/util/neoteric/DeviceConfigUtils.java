@@ -32,6 +32,10 @@ public class DeviceConfigUtils {
 
     private static final boolean DEBUG = false;
 
+    // setDefaultProperties writes through Settings.Config.putString, which consults the deny list.
+    private static final ThreadLocal<Boolean> sApplyingDefaults =
+            ThreadLocal.withInitial(() -> Boolean.FALSE);
+
     private static String[] getDeviceConfigsOverride() {
         String[] globalDeviceConfigs =
             Resources.getSystem().getStringArray(com.android.internal.R.array.global_device_configs_override);
@@ -44,11 +48,14 @@ public class DeviceConfigUtils {
 
     public static boolean shouldDenyDeviceConfigControl(String namespace, String property) {
         if (DEBUG) Log.d(TAG, "shouldAllowDeviceConfigControl, namespace=" + namespace + ", property=" + property);
+        if (sApplyingDefaults.get()) {
+            return false;
+        }
         for (String p : getDeviceConfigsOverride()) {
-            String[] kv = p.split("=");
+            String[] kv = p.split("=", 2);
             String fullKey = kv[0];
-            String[] nsKey = fullKey.split("/");
-            if (nsKey[0] == namespace && nsKey[1] == property){
+            String[] nsKey = fullKey.split("/", 2);
+            if (nsKey.length == 2 && nsKey[0].equals(namespace) && nsKey[1].equals(property)){
                 if (DEBUG) Log.d(TAG, "shouldAllowDeviceConfigControl, deny, namespace=" + namespace + ", property=" + property);
                 return true;
             }
@@ -59,27 +66,36 @@ public class DeviceConfigUtils {
 
     public static void setDefaultProperties(String filterNamespace, String filterProperty) {
         if (DEBUG) Log.d(TAG, "setDefaultProperties");
-        for (String p : getDeviceConfigsOverride()) {
-            String[] kv = p.split("=");
-            String fullKey = kv[0];
-            String[] nsKey = fullKey.split("/");
+        sApplyingDefaults.set(Boolean.TRUE);
+        try {
+            for (String p : getDeviceConfigsOverride()) {
+                String[] kv = p.split("=", 2);
+                String fullKey = kv[0];
+                String[] nsKey = fullKey.split("/", 2);
 
-            String namespace = nsKey[0];
-            String key = nsKey[1];
+                if (nsKey.length != 2) {
+                    continue;
+                }
 
-            if (filterNamespace != null && filterNamespace == namespace){
-                continue;
+                String namespace = nsKey[0];
+                String key = nsKey[1];
+
+                if (filterNamespace != null && !filterNamespace.equals(namespace)){
+                    continue;
+                }
+
+                if (filterProperty != null && !filterProperty.equals(key)){
+                    continue;
+                }
+
+                String value = "";
+                if (kv.length > 1) {
+                    value = kv[1];
+                }
+                Settings.Config.putString(namespace, key, value, false);
             }
-
-            if (filterProperty != null && filterProperty == key){
-                continue;
-            }
-
-            String value = "";
-            if (kv.length > 1) {
-                value = kv[1];
-            }
-            Settings.Config.putString(namespace, key, value, false);
+        } finally {
+            sApplyingDefaults.remove();
         }
     }
 }

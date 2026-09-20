@@ -2393,6 +2393,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
             mChildrenContainer.setContainingNotification(ExpandableNotificationRow.this);
             mChildrenContainer.onNotificationUpdated();
             mChildrenContainer.setLogger(mChildrenContainerLogger);
+            mChildrenContainer.setBlurRegionAlpha(getEffectiveBlurRegionAlpha());
 
             mTranslateableViews.add(mChildrenContainer);
         });
@@ -3141,10 +3142,20 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
     }
 
     @Override
-    public void setBlurRegionSuppressed(boolean suppressed) {
-        super.setBlurRegionSuppressed(suppressed);
-        if (mIsSummaryWithChildren) {
-            mChildrenContainer.setBlurRegionSuppressed(suppressed);
+    public void setBlurRegionAlpha(float alpha) {
+        super.setBlurRegionAlpha(alpha);
+        updateChildrenBlurRegionAlpha();
+    }
+
+    @Override
+    public void setAlpha(float alpha) {
+        super.setAlpha(alpha);
+        updateChildrenBlurRegionAlpha();
+    }
+
+    private void updateChildrenBlurRegionAlpha() {
+        if (mIsSummaryWithChildren && mChildrenContainer != null) {
+            mChildrenContainer.setBlurRegionAlpha(getEffectiveBlurRegionAlpha());
         }
     }
 
@@ -3248,6 +3259,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         final boolean wasSummary = mIsSummaryWithChildren;
         mIsSummaryWithChildren = mChildrenContainer != null
                 && mChildrenContainer.getNotificationChildCount() > 0;
+        updateChildrenBlurRegionAlpha();
         if (mIsSummaryWithChildren) {
             Trace.beginSection("ExpNotRow#onChildCountChanged (summary)");
         }

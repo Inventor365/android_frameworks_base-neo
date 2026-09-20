@@ -625,8 +625,8 @@ public class NotificationStackScrollLayout
      */
     private HeightSuppressionState mSuppressHeightState = HeightSuppressionState.None;
     private boolean mIsOnLockscreen;
-    /** Whether child rows have been told to drop their background blur regions. */
-    private boolean mBlurRegionsSuppressed;
+    /** Alpha applied to child blur regions, which do not inherit this view's alpha. */
+    private float mBlurRegionAlpha = 1f;
 
     /** Pass splitShadeStateController to view and update split shade */
     public void passSplitShadeStateController(SplitShadeStateController splitShadeStateController) {
@@ -1717,7 +1717,7 @@ public class NotificationStackScrollLayout
     @Override
     public void setAlpha(float alpha) {
         super.setAlpha(alpha);
-        updateChildrenBlurRegionSuppression(alpha);
+        updateChildrenBlurRegionAlpha(alpha);
         if (Trace.isEnabled()) {
             Trace.setCounter(
                     trackGroup(/* groupName= */ "shade", /* trackName= */ "NSSLResultingAlpha"),
@@ -1725,22 +1725,22 @@ public class NotificationStackScrollLayout
         }
     }
 
-    /** Drop child blur regions while faded out (they ignore ancestor alpha), restore when visible. */
-    private void updateChildrenBlurRegionSuppression(float alpha) {
+    /** Propagates this view's alpha because background blur regions do not inherit View alpha. */
+    private void updateChildrenBlurRegionAlpha(float alpha) {
         if (!lockscreenBlurForNotifications() && !notificationShadeBlur()) {
             return;
         }
-        boolean suppressed = alpha < 0.01f;
-        if (mBlurRegionsSuppressed == suppressed) {
+        float constrainedAlpha = MathUtils.constrain(alpha, 0f, 1f);
+        if (mBlurRegionAlpha == constrainedAlpha) {
             return;
         }
-        mBlurRegionsSuppressed = suppressed;
+        mBlurRegionAlpha = constrainedAlpha;
         for (int i = 0; i < getChildCount(); i++) {
             if (lockscreenBlurForNotifications()
                     && getChildAt(i) instanceof ActivatableNotificationView anv) {
-                anv.setBlurRegionSuppressed(suppressed);
+                anv.setBlurRegionAlpha(constrainedAlpha);
             } else if (notificationShadeBlur() && getChildAt(i) instanceof FooterView footer) {
-                footer.setBlurRegionSuppressed(suppressed);
+                footer.setBlurRegionAlpha(constrainedAlpha);
             }
         }
     }
@@ -3497,11 +3497,9 @@ public class NotificationStackScrollLayout
             if (SceneContainerFlag.isEnabled()) {
                 row.setOnKeyguard(mIsOnLockscreen);
             }
-            if (mBlurRegionsSuppressed) {
-                row.setBlurRegionSuppressed(true);
-            }
-        } else if (mBlurRegionsSuppressed && child instanceof FooterView footer) {
-            footer.setBlurRegionSuppressed(true);
+            row.setBlurRegionAlpha(mBlurRegionAlpha);
+        } else if (child instanceof FooterView footer) {
+            footer.setBlurRegionAlpha(mBlurRegionAlpha);
         }
         generateAddAnimation(child, false /* fromMoreCard */);
         updateAnimationState(child);

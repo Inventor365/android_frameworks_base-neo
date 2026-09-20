@@ -151,6 +151,7 @@ public class NotificationChildrenContainer extends ViewGroup
     private float mHeaderVisibleAmount = 1.0f;
     private int mUntruncatedChildCount;
     private boolean mContainingNotificationIsFaded = false;
+    private float mBlurRegionAlpha = 1f;
     private final RoundableState mRoundableState;
     private int mMinSingleLineHeight;
 
@@ -359,6 +360,7 @@ public class NotificationChildrenContainer extends ViewGroup
         int newIndex = childIndex < 0 ? mAttachedChildren.size() : childIndex;
         mAttachedChildren.add(newIndex, row);
         addView(row);
+        row.setBlurRegionAlpha(mBlurRegionAlpha);
         row.setUserSwipingToExpandRow(mIsUserSwipingToExpandRow);
 
         View divider = inflateDivider();
@@ -1835,10 +1837,11 @@ public class NotificationChildrenContainer extends ViewGroup
         }
     }
 
-    /** Propagates blur region suppression to the group's child rows. */
-    public void setBlurRegionSuppressed(boolean suppressed) {
+    /** Propagates the notification stack alpha to the group's child blur regions. */
+    public void setBlurRegionAlpha(float alpha) {
+        mBlurRegionAlpha = Math.max(0f, Math.min(1f, alpha));
         for (ExpandableNotificationRow child : mAttachedChildren) {
-            child.setBlurRegionSuppressed(suppressed);
+            child.setBlurRegionAlpha(mBlurRegionAlpha);
         }
     }
 

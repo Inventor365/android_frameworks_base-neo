@@ -82,8 +82,8 @@ public class NotificationBackgroundView extends View implements Dumpable,
     private final int convexR = 9;
     private final int concaveR = 22;
     private BackgroundBlurDrawable mBackgroundBlurDrawable;
-    // When true, the blur region is forced to alpha 0 (dropped from the aggregator) but kept around.
-    private boolean mBlurRegionSuppressed;
+    // Background blur regions do not inherit View alpha, so track the notification stack alpha.
+    private float mBlurRegionAlpha = 1f;
     @VisibleForTesting
     protected View.OnAttachStateChangeListener mOnAttachStateChangeListener;
 
@@ -365,8 +365,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
                                 mBackgroundBlurDrawable.setCallback(
                                         NotificationBackgroundView.this);
                                 mBackgroundBlurDrawable.setColor(Color.TRANSPARENT);
-                                mBackgroundBlurDrawable.setAlpha(
-                                        mBlurRegionSuppressed ? 0 : mDrawableAlpha);
+                                updateBlurDrawableAlpha();
 
                                 updateBackgroundRadii();
                                 invalidate();
@@ -508,19 +507,22 @@ public class NotificationBackgroundView extends View implements Dumpable,
             return;
         }
         mBackground.setAlpha(drawableAlpha);
-        if (mBackgroundBlurDrawable != null) {
-            mBackgroundBlurDrawable.setAlpha(mBlurRegionSuppressed ? 0 : drawableAlpha);
-        }
+        updateBlurDrawableAlpha();
     }
 
-    /** Drops the blur region without tearing down the drawable; blur regions ignore ancestor alpha. */
-    public void setBlurRegionSuppressed(boolean suppressed) {
-        if (mBlurRegionSuppressed == suppressed) {
+    /** Applies the notification stack alpha, which background blur regions do not inherit. */
+    public void setBlurRegionAlpha(float alpha) {
+        float constrainedAlpha = Math.max(0f, Math.min(1f, alpha));
+        if (mBlurRegionAlpha == constrainedAlpha) {
             return;
         }
-        mBlurRegionSuppressed = suppressed;
+        mBlurRegionAlpha = constrainedAlpha;
+        updateBlurDrawableAlpha();
+    }
+
+    private void updateBlurDrawableAlpha() {
         if (mBackgroundBlurDrawable != null) {
-            mBackgroundBlurDrawable.setAlpha(suppressed ? 0 : mDrawableAlpha);
+            mBackgroundBlurDrawable.setAlpha(Math.round(mDrawableAlpha * mBlurRegionAlpha));
             invalidate();
         }
     }

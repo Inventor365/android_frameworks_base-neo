@@ -225,6 +225,7 @@ public abstract class StackScrollerDecorView extends ExpandableView {
         float endValue = visible ? 1.0f : 0.0f;
         if (!animate) {
             view.setAlpha(endValue);
+            onViewAlphaChanged(view, endValue);
             if (onAnimationEnded != null) {
                 onAnimationEnded.accept(true);
             }
@@ -237,6 +238,7 @@ public abstract class StackScrollerDecorView extends ExpandableView {
                 .alpha(endValue)
                 .setInterpolator(interpolator)
                 .setDuration(mAnimationDuration)
+                .setUpdateListener(animation -> onViewAlphaChanged(view, view.getAlpha()))
                 .setListener(new AnimatorListenerAdapter() {
                     boolean mCancelled;
 
@@ -251,6 +253,9 @@ public abstract class StackScrollerDecorView extends ExpandableView {
                     }
                 });
     }
+
+    /** Called while content or secondary-view alpha is changing. */
+    protected void onViewAlphaChanged(View view, float alpha) {}
 
     @VisibleForTesting
     public void setAnimationDuration(int animationDuration) {

@@ -63,9 +63,9 @@ public class FooterView extends StackScrollerDecorView {
     private FooterViewButton mHistoryButton;
     private boolean mShouldBeHidden;
     private boolean mIsBlurSupported;
-    private boolean mBlurRegionsSuppressedByStack;
-    private boolean mContentBlurReady;
-    private boolean mClearAllBlurReady;
+    private float mBlurRegionAlpha = 1f;
+    private float mContentBlurAlpha = 1f;
+    private float mClearAllBlurAlpha = 1f;
 
     // Footer label
     private TextView mSeenNotifsFooterTextView;
@@ -133,61 +133,40 @@ public class FooterView extends StackScrollerDecorView {
         mShouldBeHidden = hide;
     }
 
-    /** Keep footer blur regions out of SurfaceFlinger while the stack is faded out. */
-    public void setBlurRegionSuppressed(boolean suppressed) {
-        if (mBlurRegionsSuppressedByStack != suppressed) {
-            mBlurRegionsSuppressedByStack = suppressed;
-            updateButtonBlurSuppression();
+    /** Applies the notification stack alpha to the footer blur regions. */
+    public void setBlurRegionAlpha(float alpha) {
+        float constrainedAlpha = Math.max(0f, Math.min(1f, alpha));
+        if (mBlurRegionAlpha != constrainedAlpha) {
+            mBlurRegionAlpha = constrainedAlpha;
+            updateButtonBlurAlpha();
         }
     }
 
     @Override
-    public void setContentVisible(boolean visible, boolean animate,
-            Consumer<Boolean> onAnimationEnded) {
-        boolean changing = isContentVisible() != visible;
-        if (changing) {
-            // The content fades through an ancestor alpha, which blur regions do not respect.
-            mContentBlurReady = visible && !animate;
-            updateButtonBlurSuppression();
-        }
-        super.setContentVisible(visible, animate, cancelled -> {
-            if (changing && visible && animate && !cancelled && isContentVisible()) {
-                mContentBlurReady = true;
-                updateButtonBlurSuppression();
-            }
-            if (onAnimationEnded != null) {
-                onAnimationEnded.accept(cancelled);
-            }
-        });
+    public void setAlpha(float alpha) {
+        super.setAlpha(alpha);
+        updateButtonBlurAlpha();
     }
 
     @Override
-    protected void setSecondaryVisible(boolean visible, boolean animate,
-            Consumer<Boolean> onAnimationEnded) {
-        boolean changing = isSecondaryVisible() != visible;
-        if (changing) {
-            mClearAllBlurReady = visible && !animate;
-            updateButtonBlurSuppression();
+    protected void onViewAlphaChanged(View view, float alpha) {
+        if (view == mContent) {
+            mContentBlurAlpha = alpha;
         }
-        super.setSecondaryVisible(visible, animate, cancelled -> {
-            if (changing && visible && animate && !cancelled && isSecondaryVisible()) {
-                mClearAllBlurReady = true;
-                updateButtonBlurSuppression();
-            }
-            if (onAnimationEnded != null) {
-                onAnimationEnded.accept(cancelled);
-            }
-        });
+        if (view == mSecondaryView) {
+            mClearAllBlurAlpha = alpha;
+        }
+        updateButtonBlurAlpha();
     }
 
-    private void updateButtonBlurSuppression() {
+    private void updateButtonBlurAlpha() {
         if (mClearAllButton == null || mSettingsButton == null || mHistoryButton == null) {
             return;
         }
-        boolean suppressed = mBlurRegionsSuppressedByStack || !mContentBlurReady;
-        mSettingsButton.setBlurRegionSuppressed(suppressed);
-        mHistoryButton.setBlurRegionSuppressed(suppressed);
-        mClearAllButton.setBlurRegionSuppressed(suppressed || !mClearAllBlurReady);
+        float contentAlpha = mBlurRegionAlpha * getAlpha() * mContentBlurAlpha;
+        mSettingsButton.setBlurRegionAlpha(contentAlpha);
+        mHistoryButton.setBlurRegionAlpha(contentAlpha);
+        mClearAllButton.setBlurRegionAlpha(contentAlpha * mClearAllBlurAlpha);
     }
 
     @Override
@@ -427,7 +406,7 @@ public class FooterView extends StackScrollerDecorView {
 
         mHistoryButton.setBackgroundWithBlur(historyBg, blurButtons, blurColor);
         mHistoryButton.setCompoundDrawableTintList(ColorStateList.valueOf(onSurface));
-        updateButtonBlurSuppression();
+        updateButtonBlurAlpha();
 
         mSeenNotifsFooterTextView.setTextColor(onSurface);
         mSeenNotifsFooterTextView.setCompoundDrawableTintList(ColorStateList.valueOf(onSurface));

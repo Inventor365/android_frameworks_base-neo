@@ -131,6 +131,7 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
      */
     protected boolean mOnKeyguard;
     protected boolean mIsBlurSupported;
+    private float mAncestorBlurRegionAlpha = 1f;
 
     public ActivatableNotificationView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -202,6 +203,7 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     protected void onFinishInflate() {
         super.onFinishInflate();
         mBackgroundNormal = findViewById(R.id.backgroundNormal);
+        updateBlurRegionAlpha();
         mFakeShadow = findViewById(R.id.fake_shadow);
         mShadowHidden = mFakeShadow.getVisibility() != VISIBLE;
         initBackground();
@@ -889,9 +891,26 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
         }
     }
 
-    /** Suppresses/restores this row's background blur region while the stack is faded out. */
-    public void setBlurRegionSuppressed(boolean suppressed) {
-        mBackgroundNormal.setBlurRegionSuppressed(suppressed);
+    @Override
+    public void setAlpha(float alpha) {
+        super.setAlpha(alpha);
+        updateBlurRegionAlpha();
+    }
+
+    /** Applies ancestor alpha to this row's background blur region. */
+    public void setBlurRegionAlpha(float alpha) {
+        mAncestorBlurRegionAlpha = Math.max(0f, Math.min(1f, alpha));
+        updateBlurRegionAlpha();
+    }
+
+    protected float getEffectiveBlurRegionAlpha() {
+        return mAncestorBlurRegionAlpha * getAlpha();
+    }
+
+    private void updateBlurRegionAlpha() {
+        if (mBackgroundNormal != null) {
+            mBackgroundNormal.setBlurRegionAlpha(getEffectiveBlurRegionAlpha());
+        }
     }
 
     /**

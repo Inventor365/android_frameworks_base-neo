@@ -34,7 +34,7 @@ public class FooterViewButton extends AlphaOptimizedButton {
     private LayerDrawable mBlurBackground;
     private int mBlurColor;
     private boolean mBlurRequested;
-    private boolean mBlurRegionSuppressed;
+    private float mBlurRegionAlpha = 1f;
 
     public FooterViewButton(Context context) {
         this(context, null);
@@ -62,10 +62,11 @@ public class FooterViewButton extends AlphaOptimizedButton {
         updateBlurBackground();
     }
 
-    /** Background blur regions ignore ancestor alpha, so the stack must suppress them directly. */
-    public void setBlurRegionSuppressed(boolean suppressed) {
-        if (mBlurRegionSuppressed != suppressed) {
-            mBlurRegionSuppressed = suppressed;
+    /** Background blur regions ignore ancestor alpha, so apply it directly. */
+    public void setBlurRegionAlpha(float alpha) {
+        float constrainedAlpha = Math.max(0f, Math.min(1f, alpha));
+        if (mBlurRegionAlpha != constrainedAlpha) {
+            mBlurRegionAlpha = constrainedAlpha;
             updateBlurVisibility();
         }
     }
@@ -102,12 +103,12 @@ public class FooterViewButton extends AlphaOptimizedButton {
 
     private void updateBlurVisibility() {
         if (mBlurDrawable != null) {
-            boolean showBlur = !mBlurRegionSuppressed && isShown();
-            if (showBlur) {
+            int blurAlpha = isShown() ? Math.round(255 * mBlurRegionAlpha) : 0;
+            if (blurAlpha > 0) {
                 if (getBackground() != mBlurBackground) {
                     setBackground(mBlurBackground);
                 }
-                mBlurDrawable.setAlpha(255);
+                mBlurDrawable.setAlpha(blurAlpha);
             } else {
                 mBlurDrawable.setAlpha(0);
                 if (getBackground() != mSurfaceBackground) {

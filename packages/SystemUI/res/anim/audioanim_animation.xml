@@ -153,8 +153,8 @@
                 <objectAnimator
                     android:duration="483"
                     android:startOffset="0"
-                    android:valueFrom="1.0045"
-                    android:valueTo="1.0045"
+                    android:valueFrom="1.00448"
+                    android:valueTo="1.00448"
                     android:valueType="floatType"
                     android:propertyName="scaleX">
                     <aapt:attr
@@ -166,8 +166,8 @@
                 <objectAnimator
                     android:duration="483"
                     android:startOffset="0"
-                    android:valueFrom="0.5022"
-                    android:valueTo="0.5022"
+                    android:valueFrom="0.50224"
+                    android:valueTo="0.50224"
                     android:valueType="floatType"
                     android:propertyName="scaleY">
                     <aapt:attr
@@ -179,7 +179,7 @@
                 <objectAnimator
                     android:duration="317"
                     android:startOffset="483"
-                    android:valueFrom="1.0045"
+                    android:valueFrom="1.00448"
                     android:valueTo="1.2556"
                     android:valueType="floatType"
                     android:propertyName="scaleX">
@@ -192,7 +192,7 @@
                 <objectAnimator
                     android:duration="317"
                     android:startOffset="483"
-                    android:valueFrom="0.5022"
+                    android:valueFrom="0.50224"
                     android:valueTo="1.2556"
                     android:valueType="floatType"
                     android:propertyName="scaleY">
@@ -470,8 +470,8 @@
                 <objectAnimator
                     android:duration="483"
                     android:startOffset="0"
-                    android:valueFrom="1.0045"
-                    android:valueTo="1.0045"
+                    android:valueFrom="1.00448"
+                    android:valueTo="1.00448"
                     android:valueType="floatType"
                     android:propertyName="scaleX">
                     <aapt:attr
@@ -483,8 +483,8 @@
                 <objectAnimator
                     android:duration="483"
                     android:startOffset="0"
-                    android:valueFrom="0.5022"
-                    android:valueTo="0.5022"
+                    android:valueFrom="0.50224"
+                    android:valueTo="0.50224"
                     android:valueType="floatType"
                     android:propertyName="scaleY">
                     <aapt:attr
@@ -496,7 +496,7 @@
                 <objectAnimator
                     android:duration="317"
                     android:startOffset="483"
-                    android:valueFrom="1.0045"
+                    android:valueFrom="1.00448"
                     android:valueTo="1.2556"
                     android:valueType="floatType"
                     android:propertyName="scaleX">
@@ -509,7 +509,7 @@
                 <objectAnimator
                     android:duration="317"
                     android:startOffset="483"
-                    android:valueFrom="0.5022"
+                    android:valueFrom="0.50224"
                     android:valueTo="1.2556"
                     android:valueType="floatType"
                     android:propertyName="scaleY">
@@ -815,8 +815,8 @@
                     android:translateY="12">
                     <group
                         android:name="_R_G_L_2_G_N_2_T_1"
-                        android:scaleX="0.7964"
-                        android:scaleY="0.7964"
+                        android:scaleX="0.79643"
+                        android:scaleY="0.79643"
                         android:translateX="-5.425"
                         android:translateY="33.575">
                         <group
@@ -825,8 +825,8 @@
                             android:translateY="14.425">
                             <group
                                 android:name="_R_G_L_2_G_T_1"
-                                android:scaleX="1.0045"
-                                android:scaleY="0.5022"
+                                android:scaleX="1.00448"
+                                android:scaleY="0.50224"
                                 android:rotation="70"
                                 android:translateX="5.395"
                                 android:translateY="-17.916">
@@ -853,8 +853,8 @@
                     android:translateY="12">
                     <group
                         android:name="_R_G_L_1_G_N_4_N_2_T_1"
-                        android:scaleX="0.7964"
-                        android:scaleY="0.7964"
+                        android:scaleX="0.79643"
+                        android:scaleY="0.79643"
                         android:translateX="-5.425"
                         android:translateY="33.575">
                         <group
@@ -863,8 +863,8 @@
                             android:translateY="14.425">
                             <group
                                 android:name="_R_G_L_1_G_N_4_T_1"
-                                android:scaleX="1.0045"
-                                android:scaleY="0.5022"
+                                android:scaleX="1.00448"
+                                android:scaleY="0.50224"
                                 android:rotation="70"
                                 android:translateX="5.395"
                                 android:translateY="-17.916">
@@ -899,8 +899,8 @@
                     android:translateY="12">
                     <group
                         android:name="_R_G_L_0_G_T_1"
-                        android:scaleX="0.7964"
-                        android:scaleY="0.7964"
+                        android:scaleX="0.79643"
+                        android:scaleY="0.79643"
                         android:translateX="-5.425"
                         android:translateY="33.575">
                         <group

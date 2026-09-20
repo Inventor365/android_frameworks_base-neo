@@ -253,6 +253,9 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
 
     companion object {
         private const val TAG = "AmbientIndication"
+        private const val MUSIC_NOTE_ANIMATION_DURATION_MS = 817L
+        private const val MUSIC_NOTE_ANIMATION_WAKE_LOCK_REASON =
+            "AmbientIndicationMusicNoteAnimation"
 
         fun sendBroadcastWithoutDismissingKeyguard(pendingIntent: PendingIntent) {
             if (pendingIntent.isActivity) {
@@ -279,7 +282,10 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        Dependency.get(StatusBarStateController::class.java).addCallback(this)
+        val statusBarStateController = Dependency.get(StatusBarStateController::class.java)
+        statusBarStateController.addCallback(this)
+        onStateChanged(statusBarStateController.state)
+        onDozingChanged(statusBarStateController.isDozing)
         Dependency.get(NotificationMediaManager::class.java).addCallback(this)
     }
 
@@ -1288,7 +1294,7 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
             } else {
                 if (iconDrawable is AnimatedVectorDrawable) {
                     mWakeLock?.acquire("AmbientIndication")
-                    iconDrawable.start()
+                    startMusicNoteAnimation(iconDrawable)
                     mWakeLock?.release("AmbientIndication")
                 }
                 return
@@ -1323,7 +1329,7 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
 
         mWakeLock?.acquire("AmbientIndication")
         if (iconDrawable is AnimatedVectorDrawable) {
-            iconDrawable.start()
+            startMusicNoteAnimation(iconDrawable)
         }
         mTextView.translationY = (mTextView.height / 2).toFloat()
         mTextView.alpha = 0.0f
@@ -1343,6 +1349,18 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
             )
             .setInterpolator(Interpolators.DECELERATE_QUINT)
             .start()
+    }
+
+    private fun startMusicNoteAnimation(drawable: AnimatedVectorDrawable) {
+        if (mDozing) {
+            val wakeLock = mWakeLock
+            wakeLock?.acquire(MUSIC_NOTE_ANIMATION_WAKE_LOCK_REASON)
+            mHandler.postDelayed(
+                { wakeLock?.release(MUSIC_NOTE_ANIMATION_WAKE_LOCK_REASON) },
+                MUSIC_NOTE_ANIMATION_DURATION_MS,
+            )
+        }
+        drawable.start()
     }
 
     private fun updateTextEllipsizing() {

@@ -63,6 +63,9 @@ public class FooterView extends StackScrollerDecorView {
     private FooterViewButton mHistoryButton;
     private boolean mShouldBeHidden;
     private boolean mIsBlurSupported;
+    private boolean mBlurRegionsSuppressedByStack;
+    private boolean mContentBlurReady;
+    private boolean mClearAllBlurReady;
 
     // Footer label
     private TextView mSeenNotifsFooterTextView;
@@ -128,6 +131,63 @@ public class FooterView extends StackScrollerDecorView {
      */
     public void setShouldBeHidden(boolean hide) {
         mShouldBeHidden = hide;
+    }
+
+    /** Keep footer blur regions out of SurfaceFlinger while the stack is faded out. */
+    public void setBlurRegionSuppressed(boolean suppressed) {
+        if (mBlurRegionsSuppressedByStack != suppressed) {
+            mBlurRegionsSuppressedByStack = suppressed;
+            updateButtonBlurSuppression();
+        }
+    }
+
+    @Override
+    public void setContentVisible(boolean visible, boolean animate,
+            Consumer<Boolean> onAnimationEnded) {
+        boolean changing = isContentVisible() != visible;
+        if (changing) {
+            // The content fades through an ancestor alpha, which blur regions do not respect.
+            mContentBlurReady = visible && !animate;
+            updateButtonBlurSuppression();
+        }
+        super.setContentVisible(visible, animate, cancelled -> {
+            if (changing && visible && animate && !cancelled && isContentVisible()) {
+                mContentBlurReady = true;
+                updateButtonBlurSuppression();
+            }
+            if (onAnimationEnded != null) {
+                onAnimationEnded.accept(cancelled);
+            }
+        });
+    }
+
+    @Override
+    protected void setSecondaryVisible(boolean visible, boolean animate,
+            Consumer<Boolean> onAnimationEnded) {
+        boolean changing = isSecondaryVisible() != visible;
+        if (changing) {
+            mClearAllBlurReady = visible && !animate;
+            updateButtonBlurSuppression();
+        }
+        super.setSecondaryVisible(visible, animate, cancelled -> {
+            if (changing && visible && animate && !cancelled && isSecondaryVisible()) {
+                mClearAllBlurReady = true;
+                updateButtonBlurSuppression();
+            }
+            if (onAnimationEnded != null) {
+                onAnimationEnded.accept(cancelled);
+            }
+        });
+    }
+
+    private void updateButtonBlurSuppression() {
+        if (mClearAllButton == null || mSettingsButton == null || mHistoryButton == null) {
+            return;
+        }
+        boolean suppressed = mBlurRegionsSuppressedByStack || !mContentBlurReady;
+        mSettingsButton.setBlurRegionSuppressed(suppressed);
+        mHistoryButton.setBlurRegionSuppressed(suppressed);
+        mClearAllButton.setBlurRegionSuppressed(suppressed || !mClearAllBlurReady);
     }
 
     @Override
@@ -311,13 +371,15 @@ public class FooterView extends StackScrollerDecorView {
         final Drawable clearAllBg = theme.getDrawable(R.drawable.notif_footer_btn_background);
         final Drawable settingsBg = theme.getDrawable(R.drawable.notif_footer_btn_background);
         final Drawable historyBg = theme.getDrawable(R.drawable.notif_footer_btn_background);
+        final boolean blurButtons = notificationShadeBlur() && mIsBlurSupported;
+        final @ColorInt int blurColor = blurButtons
+                ? SurfaceEffectColors.surfaceEffect1(getContext()) : 0;
         final @ColorInt int scHigh;
 
         if (!notificationFooterBackgroundTintOptimization()) {
             if (notificationShadeBlur()) {
                 if (mIsBlurSupported) {
-                    Color backgroundColor = Color.valueOf(
-                            SurfaceEffectColors.surfaceEffect1(getContext()));
+                    Color backgroundColor = Color.valueOf(blurColor);
                     scHigh = ColorUtils.setAlphaComponent(backgroundColor.toArgb(), 0xFF);
                     // Apply alpha on background drawables.
                     int backgroundAlpha = (int) (backgroundColor.alpha() * 0xFF);
@@ -344,14 +406,28 @@ public class FooterView extends StackScrollerDecorView {
             scHigh = 0;
         }
 
-        mClearAllButton.setBackground(clearAllBg);
+        if (blurButtons && notificationFooterBackgroundTintOptimization()) {
+            // The tint optimization leaves the resource color unchanged. Blur needs the same
+            // surface effect color and opacity as notification backgrounds.
+            int opaqueColor = ColorUtils.setAlphaComponent(blurColor, 0xFF);
+            ColorFilter colorFilter = new PorterDuffColorFilter(opaqueColor, SRC_ATOP);
+            clearAllBg.setAlpha(Color.alpha(blurColor));
+            settingsBg.setAlpha(Color.alpha(blurColor));
+            historyBg.setAlpha(Color.alpha(blurColor));
+            clearAllBg.setColorFilter(colorFilter);
+            settingsBg.setColorFilter(colorFilter);
+            historyBg.setColorFilter(colorFilter);
+        }
+
+        mClearAllButton.setBackgroundWithBlur(clearAllBg, blurButtons, blurColor);
         mClearAllButton.setTextColor(onSurface);
 
-        mSettingsButton.setBackground(settingsBg);
+        mSettingsButton.setBackgroundWithBlur(settingsBg, blurButtons, blurColor);
         mSettingsButton.setCompoundDrawableTintList(ColorStateList.valueOf(onSurface));
 
-        mHistoryButton.setBackground(historyBg);
+        mHistoryButton.setBackgroundWithBlur(historyBg, blurButtons, blurColor);
         mHistoryButton.setCompoundDrawableTintList(ColorStateList.valueOf(onSurface));
+        updateButtonBlurSuppression();
 
         mSeenNotifsFooterTextView.setTextColor(onSurface);
         mSeenNotifsFooterTextView.setCompoundDrawableTintList(ColorStateList.valueOf(onSurface));

@@ -573,6 +573,8 @@
     <dimen name="notifications_top_padding_split_shade">18dp</dimen>
 
     <dimen name="notifications_unseen_footer_icon_size">16dp</dimen>
+    <dimen name="notification_footer_button_background_radius">20dp</dimen>
+    <dimen name="notification_footer_button_background_inset">4dp</dimen>
 
     <!-- The size of the icon shown in the shade when there are no notifications -->
     <dimen name="empty_shade_icon_size">32dp</dimen>

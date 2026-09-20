@@ -28,6 +28,7 @@ import static com.android.internal.jank.InteractionJankMonitor.CUJ_NOTIFICATION_
 import static com.android.internal.jank.InteractionJankMonitor.CUJ_SHADE_CLEAR_ALL;
 import static com.android.systemui.Flags.lockscreenBlurForNotifications;
 import static com.android.systemui.Flags.notificationDebugDrawing;
+import static com.android.systemui.Flags.notificationShadeBlur;
 import static com.android.systemui.Flags.physicalNotificationMovement;
 import static com.android.systemui.Flags.widerLandscapeNotifications;
 import static com.android.systemui.statusbar.notification.stack.NotificationPriorityBucketKt.BUCKET_NEWS;
@@ -1726,7 +1727,7 @@ public class NotificationStackScrollLayout
 
     /** Drop child blur regions while faded out (they ignore ancestor alpha), restore when visible. */
     private void updateChildrenBlurRegionSuppression(float alpha) {
-        if (!lockscreenBlurForNotifications()) {
+        if (!lockscreenBlurForNotifications() && !notificationShadeBlur()) {
             return;
         }
         boolean suppressed = alpha < 0.01f;
@@ -1735,8 +1736,11 @@ public class NotificationStackScrollLayout
         }
         mBlurRegionsSuppressed = suppressed;
         for (int i = 0; i < getChildCount(); i++) {
-            if (getChildAt(i) instanceof ActivatableNotificationView anv) {
+            if (lockscreenBlurForNotifications()
+                    && getChildAt(i) instanceof ActivatableNotificationView anv) {
                 anv.setBlurRegionSuppressed(suppressed);
+            } else if (notificationShadeBlur() && getChildAt(i) instanceof FooterView footer) {
+                footer.setBlurRegionSuppressed(suppressed);
             }
         }
     }
@@ -3496,6 +3500,8 @@ public class NotificationStackScrollLayout
             if (mBlurRegionsSuppressed) {
                 row.setBlurRegionSuppressed(true);
             }
+        } else if (mBlurRegionsSuppressed && child instanceof FooterView footer) {
+            footer.setBlurRegionSuppressed(true);
         }
         generateAddAnimation(child, false /* fromMoreCard */);
         updateAnimationState(child);

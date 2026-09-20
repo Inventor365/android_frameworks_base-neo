@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -83,6 +84,7 @@ import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordancesCombin
 import com.android.systemui.plugins.FalsingManager
 import com.android.systemui.plugins.keyguard.ui.composable.elements.BaseLockscreenElement.ElementSource
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElement
+import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.Shortcuts
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementProvider
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenScope
@@ -129,6 +131,12 @@ constructor(
             KeyguardShortcut(
                 viewModel = if (isStart) viewModel.startButton else viewModel.endButton,
                 alphaFlow = viewModel.transitionAlpha,
+                ancestorSceneAlpha = {
+                    contentScope.run {
+                        (LockscreenElementKeys.Region.Lower.currentAlpha() ?: 1f) *
+                            (LockscreenElementKeys.Root.currentAlpha() ?: 1f)
+                    }
+                },
                 messageDisplayer = { indicationController.showTransientIndication(it) },
             )
         }
@@ -139,6 +147,7 @@ constructor(
     private fun KeyguardShortcut(
         viewModel: Flow<KeyguardQuickAffordanceViewModel>,
         alphaFlow: Flow<Float>,
+        ancestorSceneAlpha: () -> Float,
         messageDisplayer: (Int) -> Unit,
         modifier: Modifier = Modifier,
     ) {
@@ -230,7 +239,7 @@ constructor(
                             alpha = if (quickAffordanceViewModel.isDimmed) DIM_ALPHA else alpha,
                             translationX = xAnimation.value.x,
                         )
-                        .drawBlurBehind(quickAffordanceViewModel, alpha)
+                        .drawBlurBehind(quickAffordanceViewModel, alpha, ancestorSceneAlpha)
                         .shortcutBackground(quickAffordanceViewModel)
                         .clickableShortcut(
                             expandable,
@@ -288,6 +297,7 @@ constructor(
     private fun Modifier.drawBlurBehind(
         viewModel: KeyguardQuickAffordanceViewModel,
         alpha: Float,
+        ancestorSceneAlpha: () -> Float,
     ): Modifier {
         if (enableLockscreenBlur()) {
             val viewRootImpl = LocalView.current.viewRootImpl
@@ -302,13 +312,19 @@ constructor(
             val isBlurSupported by
                 windowRootViewBlurInteractor.isBlurCurrentlySupported.collectAsStateWithLifecycle()
 
+            DisposableEffect(drawable) {
+                onDispose { drawable.alpha = 0 }
+            }
+
             if (isBlurSupported) {
                 return drawBehind {
                     drawable.apply {
+                        // Blur regions bypass Compose layers, so include the scene ancestors that
+                        // fade the foreground icon.
+                        val backgroundAlpha = if (viewModel.isDimmed) DIM_ALPHA else alpha
+                        setAlpha((backgroundAlpha * ancestorSceneAlpha() * 255).toInt())
                         setBlurRadius(blurRadius.roundToPx())
                         setCornerRadius(cornerRadius.toPx())
-                        val backgroundAlpha = if (viewModel.isDimmed) DIM_ALPHA else alpha
-                        setAlpha((backgroundAlpha * 255).toInt())
                     }
                     drawIntoCanvas { canvas ->
                         drawable.setBounds(0, 0, size.width.toInt(), size.height.toInt())

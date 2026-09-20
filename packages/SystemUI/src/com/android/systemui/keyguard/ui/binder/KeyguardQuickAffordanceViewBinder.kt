@@ -97,13 +97,14 @@ constructor(
         val hapticsViewModel = hapticsViewModelFactory.create()
         val cornerRadius = view.resources.getDimension(R.dimen.keyguard_affordance_fixed_radius)
         val blurRadius =
-            view.resources.getDimensionPixelSize(R.dimen.keyguard_shortcuts_blur_radius)
+            view.resources.getDimensionPixelSize(R.dimen.notification_background_blur_radius)
 
         val disposableHandle =
             view.repeatWhenAttached {
                 if (enableLockscreenBlur() && view.background !is LayerDrawable) {
                     val blurDrawable =
                         view.viewRootImpl.createBackgroundBlurDrawable().apply {
+                            setXfermode(null)
                             setCornerRadius(cornerRadius)
                             setBlurRadius(blurRadius)
                             setVisible(false, false)

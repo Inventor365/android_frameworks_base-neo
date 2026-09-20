@@ -2289,11 +2289,8 @@
     <item name="bouncer_container_size_fraction" format="float" type="dimen">0.72</item>
     <!-- Bouncer containerization on large screens end -->
 
-    <!-- Lockscreen blur values -->
-    <dimen name="keyguard_shortcuts_blur_radius">15dp</dimen>
-    <dimen name="fingerprint_icon_blur_radius">15dp</dimen>
-    <dimen name="notification_background_blur_radius">25dp</dimen>
-    <!-- Lockscreen blur values end -->
+    <!-- Match translucent notification and lockscreen surfaces to the fully expanded QS blur. -->
+    <dimen name="notification_background_blur_radius">@dimen/max_shade_window_blur_radius</dimen>
 
     <!-- Usb Device Dialog values -->
     <dimen name="usb_device_dialog_space_small1">16dp</dimen>

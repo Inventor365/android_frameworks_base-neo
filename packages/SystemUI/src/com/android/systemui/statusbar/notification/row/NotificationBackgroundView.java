@@ -23,6 +23,7 @@ import static com.android.systemui.util.ColorUtilKt.hexColorString;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
@@ -129,28 +130,35 @@ public class NotificationBackgroundView extends View implements Dumpable,
                         getActualHeight() - clipBottomAmount);
             }
 
-            // Keep the regular background while the blur region is suppressed to avoid a blank row.
-            Drawable background = mBackgroundBlurDrawable != null
+            // Match QS surfaces: the blur is a colorless backdrop and the regular surface-effect
+            // background is drawn above it. Drawing the tint as part of BackgroundBlurDrawable
+            // made lockscreen notifications look more transparent than QS tiles.
+            Drawable blurBackground = mBackgroundBlurDrawable != null
                     && mBackgroundBlurDrawable.getAlpha() > 0
-                    ? mBackgroundBlurDrawable : mBackground;
+                    ? mBackgroundBlurDrawable : null;
 
             if (!NotificationAddXOnHoverToDismiss.isEnabled()) {
-                draw(canvas, background);
+                draw(canvas, blurBackground);
+                draw(canvas, mBackground);
                 canvas.restore();
                 return;
             }
 
             Rect backgroundBounds = null;
-            if (background != null || mDrawDismissButtonCutout) {
+            if (blurBackground != null || mBackground != null || mDrawDismissButtonCutout) {
                 backgroundBounds = calculateBackgroundBounds();
             }
 
             if (mDrawDismissButtonCutout) {
                 canvas.clipPath(calculateDismissButtonCutoutPath(backgroundBounds));
             }
-            if (background != null) {
-                background.setBounds(backgroundBounds);
-                background.draw(canvas);
+            if (blurBackground != null) {
+                blurBackground.setBounds(backgroundBounds);
+                blurBackground.draw(canvas);
+            }
+            if (mBackground != null) {
+                mBackground.setBounds(backgroundBounds);
+                mBackground.draw(canvas);
             }
 
             canvas.restore();
@@ -356,7 +364,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
                                 mBackgroundBlurDrawable.setXfermode(null);
                                 mBackgroundBlurDrawable.setCallback(
                                         NotificationBackgroundView.this);
-                                mBackgroundBlurDrawable.setColor(mTintColor);
+                                mBackgroundBlurDrawable.setColor(Color.TRANSPARENT);
                                 mBackgroundBlurDrawable.setAlpha(
                                         mBlurRegionSuppressed ? 0 : mDrawableAlpha);
 
@@ -403,9 +411,6 @@ public class NotificationBackgroundView extends View implements Dumpable,
         } else {
             baseLayer.mutate().setTintMode(PorterDuff.Mode.SRC_ATOP);
             baseLayer.setTint(tintColor);
-        }
-        if (mBackgroundBlurDrawable != null) {
-            mBackgroundBlurDrawable.setColor(tintColor);
         }
         mTintColor = tintColor;
         setStatefulColors();

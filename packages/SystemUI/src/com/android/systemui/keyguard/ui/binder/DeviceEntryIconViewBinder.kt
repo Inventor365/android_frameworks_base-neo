@@ -284,7 +284,7 @@ object DeviceEntryIconViewBinder {
                                 setXfermode(null)
                                 setBlurRadius(
                                     bgView.context.resources.getDimensionPixelOffset(
-                                        R.dimen.fingerprint_icon_blur_radius
+                                        R.dimen.notification_background_blur_radius
                                     )
                                 )
                                 setVisible(false, false)

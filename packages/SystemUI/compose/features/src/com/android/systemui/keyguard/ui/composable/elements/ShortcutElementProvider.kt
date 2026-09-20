@@ -298,7 +298,7 @@ constructor(
                 }
             }
             val cornerRadius = dimensionResource(R.dimen.keyguard_affordance_fixed_height)
-            val blurRadius = dimensionResource(R.dimen.keyguard_shortcuts_blur_radius)
+            val blurRadius = dimensionResource(R.dimen.notification_background_blur_radius)
             val isBlurSupported by
                 windowRootViewBlurInteractor.isBlurCurrentlySupported.collectAsStateWithLifecycle()
 

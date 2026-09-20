@@ -367,7 +367,9 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     protected boolean usesBlurredBackground() {
-        return usesTransparentBackground() && lockscreenBlurForNotifications();
+        // QS tiles inherit the blur applied to the entire shade window. Do the same for
+        // notifications in the unlocked shade, and only add a local blur region on keyguard.
+        return mOnKeyguard && usesTransparentBackground() && lockscreenBlurForNotifications();
     }
 
     protected boolean usesTransparentBackground() {
@@ -876,10 +878,14 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
         if (mOnKeyguard == onKeyguard) {
             return;
         }
+        boolean usedBlurredBackground = usesBlurredBackground();
         mOnKeyguard = onKeyguard;
         mBackgroundNormal.setOnKeyguard(mOnKeyguard);
         if (notificationRowTransparency()) {
             updateBackgroundTint();
+        }
+        if (usedBlurredBackground != usesBlurredBackground()) {
+            mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
         }
     }
 

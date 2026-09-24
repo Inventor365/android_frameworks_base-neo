@@ -228,7 +228,6 @@ public class BcSmartspaceView extends FrameLayout
     }
 
     public boolean handleTouchOverride(MotionEvent event, Predicate<MotionEvent> touchHandler) {
-        boolean onTouchEvent = touchHandler.test(event);
         int action = event.getAction();
         if (action == 0) {
             mInitialTouchX = event.getX();
@@ -247,6 +246,7 @@ public class BcSmartspaceView extends FrameLayout
                     > mTouchSlop) {
                 cancelScheduledLongPress();
             }
+        } else if (action == 3) {
             cancelScheduledLongPress();
         }
 
@@ -255,6 +255,7 @@ public class BcSmartspaceView extends FrameLayout
             return true;
         }
 
+        boolean onTouchEvent = touchHandler.test(event);
         if (onTouchEvent) {
             cancelScheduledLongPress();
             return true;

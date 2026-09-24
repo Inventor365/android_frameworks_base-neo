@@ -100,7 +100,10 @@ constructor(
 
     val shouldSkipTransition: Boolean by
         transitionInteractor.transitionState
-            .map { state -> state.from == KeyguardState.OFF || state.from == KeyguardState.DOZING }
+            .map { state ->
+                state.transitionState.isTransitioning() &&
+                    (state.from == KeyguardState.OFF || state.from == KeyguardState.DOZING)
+            }
             .hydratedStateOf(initialValue = false)
 
     fun evaluateClockSize(evaluateDynamicSize: () -> Decision<ClockSize>): Decision<ClockSize> {

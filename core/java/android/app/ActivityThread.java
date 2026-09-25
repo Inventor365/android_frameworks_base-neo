@@ -8305,6 +8305,7 @@ public final class ActivityThread extends ClientTransactionHandler
             sendMessage(H.SET_CONTENT_CAPTURE_OPTIONS_CALLBACK, data.appInfo.packageName);
 
             mInitialApplication = app;
+            Typeface.updateDefaultFont(app.getResources());
             final boolean updateHttpProxy;
             synchronized (this) {
                 updateHttpProxy = mUpdateHttpProxyOnBind;

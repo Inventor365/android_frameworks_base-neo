@@ -19,9 +19,8 @@
 package com.android.compose.theme.typography
 
 import android.content.Context
+import android.graphics.Typeface
 import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.font.DeviceFontFamilyName
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 
@@ -31,58 +30,26 @@ internal class TypefaceTokens(typefaceNames: TypefaceNames) {
         val WeightRegular = FontWeight.Normal
     }
 
-    private val brandFont = DeviceFontFamilyName(typefaceNames.brand)
-    private val plainFont = DeviceFontFamilyName(typefaceNames.plain)
+    // Hand Compose the typefaces directly: it caches font lookups by name, and treats a named
+    // font equal to Typeface.DEFAULT as missing, so neither would follow font switches.
+    val brand = FontFamily(Typeface.create(typefaceNames.brand, Typeface.NORMAL))
+    val plain = FontFamily(Typeface.create(typefaceNames.plain, Typeface.NORMAL))
 
-    // Google Sans Flex emphasized styles
-    private val displayLargeEmphasizedFont =
-        DeviceFontFamilyName("variable-display-large-emphasized")
-    private val displayMediumEmphasizedFont =
-        DeviceFontFamilyName("variable-display-medium-emphasized")
-    private val displaySmallEmphasizedFont =
-        DeviceFontFamilyName("variable-display-small-emphasized")
-    private val headlineLargeEmphasizedFont =
-        DeviceFontFamilyName("variable-headline-large-emphasized")
-    private val headlineMediumEmphasizedFont =
-        DeviceFontFamilyName("variable-headline-medium-emphasized")
-    private val headlineSmallEmphasizedFont =
-        DeviceFontFamilyName("variable-headline-small-emphasized")
-    private val titleLargeEmphasizedFont = DeviceFontFamilyName("variable-title-large-emphasized")
-    private val titleMediumEmphasizedFont = DeviceFontFamilyName("variable-title-medium-emphasized")
-    private val titleSmallEmphasizedFont = DeviceFontFamilyName("variable-title-small-emphasized")
-    private val bodyLargeEmphasizedFont = DeviceFontFamilyName("variable-body-large-emphasized")
-    private val bodyMediumEmphasizedFont = DeviceFontFamilyName("variable-body-medium-emphasized")
-    private val bodySmallEmphasizedFont = DeviceFontFamilyName("variable-body-small-emphasized")
-    private val labelLargeEmphasizedFont = DeviceFontFamilyName("variable-label-large-emphasized")
-    private val labelMediumEmphasizedFont = DeviceFontFamilyName("variable-label-medium-emphasized")
-    private val labelSmallEmphasizedFont = DeviceFontFamilyName("variable-label-small-emphasized")
-
-    val brand =
-        FontFamily(
-            Font(brandFont, weight = WeightMedium),
-            Font(brandFont, weight = WeightRegular),
-        )
-    val plain =
-        FontFamily(
-            Font(plainFont, weight = WeightMedium),
-            Font(plainFont, weight = WeightRegular),
-        )
-
-    val displayLargeEmphasized = FontFamily(Font(displayLargeEmphasizedFont))
-    val displayMediumEmphasized = FontFamily(Font(displayMediumEmphasizedFont))
-    val displaySmallEmphasized = FontFamily(Font(displaySmallEmphasizedFont))
-    val headlineLargeEmphasized = FontFamily(Font(headlineLargeEmphasizedFont))
-    val headlineMediumEmphasized = FontFamily(Font(headlineMediumEmphasizedFont))
-    val headlineSmallEmphasized = FontFamily(Font(headlineSmallEmphasizedFont))
-    val titleLargeEmphasized = FontFamily(Font(titleLargeEmphasizedFont))
-    val titleMediumEmphasized = FontFamily(Font(titleMediumEmphasizedFont))
-    val titleSmallEmphasized = FontFamily(Font(titleSmallEmphasizedFont))
-    val bodyLargeEmphasized = FontFamily(Font(bodyLargeEmphasizedFont))
-    val bodyMediumEmphasized = FontFamily(Font(bodyMediumEmphasizedFont))
-    val bodySmallEmphasized = FontFamily(Font(bodySmallEmphasizedFont))
-    val labelLargeEmphasized = FontFamily(Font(labelLargeEmphasizedFont))
-    val labelMediumEmphasized = FontFamily(Font(labelMediumEmphasizedFont))
-    val labelSmallEmphasized = FontFamily(Font(labelSmallEmphasizedFont))
+    val displayLargeEmphasized = brand
+    val displayMediumEmphasized = brand
+    val displaySmallEmphasized = brand
+    val headlineLargeEmphasized = brand
+    val headlineMediumEmphasized = brand
+    val headlineSmallEmphasized = brand
+    val titleLargeEmphasized = brand
+    val titleMediumEmphasized = plain
+    val titleSmallEmphasized = plain
+    val bodyLargeEmphasized = plain
+    val bodyMediumEmphasized = plain
+    val bodySmallEmphasized = plain
+    val labelLargeEmphasized = plain
+    val labelMediumEmphasized = plain
+    val labelSmallEmphasized = plain
 }
 
 internal data class TypefaceNames

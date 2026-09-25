@@ -882,6 +882,15 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
     private int mFontWeightAdjustment;
     private Typeface mOriginalTypeface;
 
+    // Attribute font inputs, replayed when the system font overlay changes
+    private boolean mHasAttrTypeface;
+    private String mAttrFontFamily;
+    private int mAttrTypefaceIndex;
+    private int mAttrTextStyle;
+    private int mAttrFontWeight;
+    private Typeface mAttrResolvedTypeface;
+    private int mFontGeneration;
+
     // True if setKeyListener() has been explicitly called
     private boolean mListenerChanged = false;
     // True if internationalized input should be used for numbers and date and time.
@@ -2434,6 +2443,12 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
             @XMLTypefaceAttr int typefaceIndex, @Typeface.Style int style,
             @IntRange(from = FontStyle.FONT_WEIGHT_UNSPECIFIED, to = FontStyle.FONT_WEIGHT_MAX)
                     int weight) {
+        mHasAttrTypeface = typeface == null;
+        mAttrFontFamily = familyName;
+        mAttrTypefaceIndex = typefaceIndex;
+        mAttrTextStyle = style;
+        mAttrFontWeight = weight;
+        mFontGeneration = Typeface.getFontGeneration();
         if (typeface == null && familyName != null) {
             // Lookup normal Typeface from system font map.
             final Typeface normalTypeface = Typeface.create(familyName, Typeface.NORMAL);
@@ -2457,6 +2472,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
                     break;
             }
         }
+        mAttrResolvedTypeface = mOriginalTypeface;
     }
 
     private void resolveStyleAndSetTypeface(@NonNull Typeface typeface, @Typeface.Style int style,
@@ -4666,6 +4682,21 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
         }
     }
 
+    /** Re-resolves an attribute typeface if the system font overlay changed since. */
+    private void updateTypefaceForFontOverlay() {
+        if (!mHasAttrTypeface) return;
+        if (mFontGeneration != Typeface.getFontGeneration()
+                && mOriginalTypeface == mAttrResolvedTypeface) {
+            setTypefaceFromAttrs(null, mAttrFontFamily, mAttrTypefaceIndex, mAttrTextStyle,
+                    mAttrFontWeight);
+            if (mLayout != null) {
+                nullLayouts();
+                requestLayout();
+                invalidate();
+            }
+        }
+    }
+
     @Override
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -4677,6 +4708,10 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
                 invalidate();
             }
         }
+        if (mHasAttrTypeface) {
+            Typeface.updateDefaultFont(getResources());
+        }
+        updateTypefaceForFontOverlay();
         if (mFontWeightAdjustment != newConfig.fontWeightAdjustment) {
             mFontWeightAdjustment = newConfig.fontWeightAdjustment;
             setTypeface(getTypeface());
@@ -8853,6 +8888,9 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+
+        // Views detached during a font switch miss onConfigurationChanged.
+        updateTypefaceForFontOverlay();
 
         if (mEditor != null) mEditor.onAttachedToWindow();
 

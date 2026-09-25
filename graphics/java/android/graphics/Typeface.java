@@ -174,6 +174,9 @@ public class Typeface {
 
     // For dynamic default font styles
     private static final HashMap<String, Typeface> sSystemFontOverrides = new HashMap<>();
+    @GuardedBy("SYSTEM_FONT_MAP_LOCK")
+    private static String sAppliedFontKey;
+    private static volatile int sFontGeneration;
 
     @GuardedBy("SYSTEM_FONT_MAP_LOCK")
     static Typeface sDefaultTypeface;
@@ -1575,26 +1578,32 @@ public class Typeface {
         }
     }
 
+    // JNI SetStaticObjectField aborts on final fields of an initialized class; reflection doesn't
     private static void setFinalField(String fieldName, Typeface value) {
-        synchronized (SYSTEM_FONT_MAP_LOCK) {
-            try {
-                Field field = Typeface.class.getDeclaredField(fieldName);
-                // isAccessible bypasses final on ART
-                field.setAccessible(true);
-                field.set(null, value);
-                field.setAccessible(false);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                Log.e(TAG, "Failed to set Typeface." + fieldName, e);
-            }
+        try {
+            Field field = Typeface.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(null, value);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            Log.e(TAG, "Failed to set Typeface." + fieldName, e);
         }
+    }
+
+    /** @hide Bumped whenever the overridden default font changes. */
+    public static int getFontGeneration() {
+        return sFontGeneration;
     }
 
     /** @hide */
     public static void updateDefaultFont(Resources res) {
+        String familyName = res.getString(com.android.internal.R.string.config_bodyFontFamily);
+        String headlineFamilyName = res.getString(
+                com.android.internal.R.string.config_headlineFontFamily);
+        String fontKey = familyName + "/" + headlineFamilyName;
         synchronized (SYSTEM_FONT_MAP_LOCK) {
-            String familyName = res.getString(com.android.internal.R.string.config_bodyFontFamily);
-            String headlineFamilyName = res.getString(
-                    com.android.internal.R.string.config_headlineFontFamily);
+            if (fontKey.equals(sAppliedFontKey)) {
+                return;
+            }
             Typeface typeface = sSystemFontMap.get(familyName);
             Typeface headlineTypeface = sSystemFontMap.get(headlineFamilyName);
             if (typeface == null) {
@@ -1610,9 +1619,10 @@ public class Typeface {
             setDefault(typeface);
 
             // Static typefaces in public API
-            setFinalField("DEFAULT", create(getSystemDefaultTypeface(familyName), 0));
-            setFinalField("DEFAULT_BOLD", create(getSystemDefaultTypeface(familyName), Typeface.BOLD));
-            setFinalField("SANS_SERIF", DEFAULT);
+            final Typeface defaultTypeface = create(typeface, Typeface.NORMAL);
+            setFinalField("DEFAULT", defaultTypeface);
+            setFinalField("DEFAULT_BOLD", create(typeface, Typeface.BOLD));
+            setFinalField("SANS_SERIF", defaultTypeface);
 
             // For default aliases used in framework styles
             sSystemFontOverrides.put("sans-serif", typeface);
@@ -1629,6 +1639,27 @@ public class Typeface {
 
             sSystemFontOverrides.put("google-sans", headlineTypeface);
             sSystemFontOverrides.put("google-sans-medium", create(headlineTypeface, 500, false));
+
+            // Replace Google Sans Flex M3 type scale families
+            for (String role : new String[] {"display", "headline", "title", "body", "label"}) {
+                for (String size : new String[] {"large", "medium", "small"}) {
+                    boolean isHeadline = role.equals("display") || role.equals("headline")
+                            || (role.equals("title") && size.equals("large"));
+                    boolean isMedium = role.equals("label")
+                            || (role.equals("title") && !size.equals("large"));
+                    Typeface base = isHeadline ? headlineTypeface : typeface;
+                    String name = "variable-" + role + "-" + size;
+                    sSystemFontOverrides.put(name, create(base, isMedium ? 500 : 400, false));
+                    sSystemFontOverrides.put(name + "-emphasized",
+                            create(base, isMedium ? 600 : 500, false));
+                }
+            }
+
+            sAppliedFontKey = fontKey;
+            sFontGeneration++;
+        }
+        synchronized (sDynamicCacheLock) {
+            sDynamicTypefaceCache.evictAll();
         }
     }
 

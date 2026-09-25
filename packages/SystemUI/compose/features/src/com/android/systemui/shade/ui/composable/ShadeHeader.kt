@@ -69,9 +69,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.DeviceFontFamilyName
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
@@ -729,6 +726,7 @@ private fun CarrierTextWithSubscriptionId(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CarrierTextNoSubscriptionId(viewModel: ShadeHeaderViewModel) {
     Text(
@@ -737,8 +735,7 @@ private fun CarrierTextNoSubscriptionId(viewModel: ShadeHeaderViewModel) {
         color = ShadeHeader.Colors.textColor,
         style =
             TextStyle(
-                fontFamily =
-                    FontFamily(Font(DeviceFontFamilyName("variable-body-medium-emphasized"))),
+                fontFamily = MaterialTheme.typography.bodyMediumEmphasized.fontFamily,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.01.em,
             ),

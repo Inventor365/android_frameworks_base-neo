@@ -549,10 +549,27 @@ public class SoundTriggerService extends SystemService {
             }
         }
 
+        private int deliverAmbientMusic(UUID modelUuid, boolean forced) {
+            IRecognitionStatusCallback callback;
+            synchronized (mCallbacksLock) {
+                callback = mCallbacks.get(modelUuid);
+            }
+            if (callback == null) {
+                return STATUS_ERROR;
+            }
+            try {
+                callback.onGenericSoundTriggerDetected(forced
+                        ? AmbientMusicShim.forcedEvent(modelUuid)
+                        : AmbientMusicShim.squelchEndEvent(modelUuid));
+            } catch (RemoteException e) {
+                return STATUS_DEAD_OBJECT;
+            }
+            return STATUS_OK;
+        }
+
         SoundTriggerSessionStub(@NonNull IBinder client,
                 SoundTriggerHelper soundTriggerHelper, EventLogger eventLogger) {
             mSoundTriggerHelper = soundTriggerHelper;
-            AmbientMusicShim.setRearmer(this::rearmAmbientMusic);
             mClient = client;
             mOriginatorIdentity = IdentityContext.getNonNull();
             mEventLogger = eventLogger;
@@ -759,6 +776,15 @@ public class SoundTriggerService extends SystemService {
                     synchronized (mCallbacksLock) {
                         existingCallback = mCallbacks.get(soundModelId.getUuid());
                     }
+                    if (existingCallback != null
+                            && AmbientMusicShim.isFired(soundModelId.getUuid())) {
+                        mSoundTriggerHelper.stopGenericRecognition(soundModelId.getUuid(),
+                                existingCallback);
+                        synchronized (mCallbacksLock) {
+                            mCallbacks.remove(soundModelId.getUuid());
+                        }
+                        existingCallback = null;
+                    }
                     if (existingCallback != null) {
                         mEventLogger.enqueue(new SessionEvent(
                                     Type.START_RECOGNITION_SERVICE,
@@ -789,6 +815,10 @@ public class SoundTriggerService extends SystemService {
                     }
                     synchronized (mCallbacksLock) {
                         mCallbacks.put(soundModelId.getUuid(), callback);
+                    }
+                    if (AmbientMusicShim.isTranslated(soundModelId.getUuid())) {
+                        AmbientMusicShim.onStart(soundModelId.getUuid(), this::rearmAmbientMusic,
+                                modelUuid -> deliverAmbientMusic(modelUuid, false));
                     }
 
                     mSoundModelStatTracker.onStart(soundModelId.getUuid());
@@ -921,6 +951,10 @@ public class SoundTriggerService extends SystemService {
                         return false;
                     }
                 }
+                // A fired ambient music model is spent, as the one-shot DSP model would be.
+                if (AmbientMusicShim.isFired(parcelUuid.getUuid())) {
+                    return false;
+                }
                 return mSoundTriggerHelper.isRecognitionRequested(parcelUuid.getUuid());
             }
         }
@@ -947,7 +981,8 @@ public class SoundTriggerService extends SystemService {
                             if (AmbientMusicShim.isTranslated(soundModel.getUuid())) {
                                 // A dead model is the client's cue to reload it for us.
                                 ret = AmbientMusicShim.isStale(soundModel.getUuid())
-                                        ? STATUS_DEAD_OBJECT : STATUS_OK;
+                                        ? STATUS_DEAD_OBJECT : deliverAmbientMusic(
+                                                soundModel.getUuid(), true);
                             } else {
                                 ret = mSoundTriggerHelper.getGenericModelState(
                                         soundModel.getUuid());
@@ -1490,7 +1525,8 @@ public class SoundTriggerService extends SystemService {
             @Override
             public void onGenericSoundTriggerDetected(SoundTrigger.GenericRecognitionEvent event) {
                 final SoundTrigger.GenericRecognitionEvent clientEvent;
-                if (AmbientMusicShim.isTranslated(mPuuid.getUuid())) {
+                if (AmbientMusicShim.isTranslated(mPuuid.getUuid())
+                        && !AmbientMusicShim.isSynthetic(event)) {
                     AmbientMusicShim.noteEvent(mPuuid.getUuid());
                     if (!AmbientMusicShim.shouldNotify(mPuuid.getUuid(), event)) {
                         return;

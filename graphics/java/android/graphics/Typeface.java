@@ -58,6 +58,7 @@ import android.util.SparseArray;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
+import com.android.internal.util.StaticFieldWriter;
 import com.android.text.flags.Flags;
 
 import dalvik.annotation.optimization.CriticalNative;
@@ -72,7 +73,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -1578,13 +1578,10 @@ public class Typeface {
         }
     }
 
-    // JNI SetStaticObjectField aborts on final fields of an initialized class; reflection doesn't
     private static void setFinalField(String fieldName, Typeface value) {
         try {
-            Field field = Typeface.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(null, value);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+            StaticFieldWriter.set(Typeface.class, fieldName, value);
+        } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Failed to set Typeface." + fieldName, e);
         }
     }

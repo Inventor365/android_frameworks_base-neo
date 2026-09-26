@@ -309,10 +309,9 @@ public class PropImitationHooks {
                 key = key.substring(8);
             }
             Field field = clazz.getDeclaredField(key);
-            field.setAccessible(true);
             // Cast the value to int if it's an integer field, otherwise string.
-            field.set(null, field.getType().equals(Integer.TYPE) ? Integer.parseInt(value) : value);
-            field.setAccessible(false);
+            StaticFieldWriter.set(clazz, key,
+                    field.getType().equals(Integer.TYPE) ? Integer.parseInt(value) : value);
         } catch (Exception e) {
             Log.e(TAG, "Failed to set prop " + key, e);
         }

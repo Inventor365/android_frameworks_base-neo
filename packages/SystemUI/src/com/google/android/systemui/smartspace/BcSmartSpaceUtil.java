@@ -151,6 +151,28 @@ public abstract class BcSmartSpaceUtil {
         return drawable;
     }
 
+    // Off-Pixel, AGSA's smartspace trampoline drops weather taps; send those to Pixel Weather
+    private static Intent getWeatherIntent(
+            View view, SmartspaceTarget target, Intent intent, PendingIntent pendingIntent) {
+        if (target == null || target.getFeatureType() != SmartspaceTarget.FEATURE_WEATHER) {
+            return null;
+        }
+        final String agsa = "com.google.android.googlequicksearchbox";
+        boolean toAgsa =
+                (intent != null
+                                && (agsa.equals(intent.getPackage())
+                                        || (intent.getComponent() != null
+                                                && agsa.equals(
+                                                        intent.getComponent().getPackageName()))))
+                        || (pendingIntent != null && agsa.equals(pendingIntent.getCreatorPackage()));
+        if (!toAgsa) {
+            return null;
+        }
+        return view.getContext()
+                .getPackageManager()
+                .getLaunchIntentForPackage("com.google.android.apps.weather");
+    }
+
     public static BcSmartspaceDataPlugin.IntentStarter getIntentStarter(
             BcSmartspaceDataPlugin.SmartspaceEventNotifier eventNotifier, String tag) {
         BcSmartspaceDataPlugin.IntentStarter intentStarter =
@@ -227,7 +249,12 @@ public abstract class BcSmartSpaceUtil {
                                 BcSmartspaceEvent.SMARTSPACE_CARD_CLICK, loggingInfo);
                     }
 
-                    if (!isNoIntent) {
+                    Intent weatherIntent =
+                            getWeatherIntent(
+                                    v, target, action.getIntent(), action.getPendingIntent());
+                    if (weatherIntent != null) {
+                        intentStarter.startIntent(v, weatherIntent, false);
+                    } else if (!isNoIntent) {
                         intentStarter.startFromAction(action, v, showOnLockscreen);
                     }
 
@@ -278,7 +305,13 @@ public abstract class BcSmartSpaceUtil {
 
                     BcSmartspaceDataPlugin.IntentStarter intentStarter =
                             getIntentStarter(eventNotifier, tag);
-                    if (tapAction.getIntent() != null || tapAction.getPendingIntent() != null) {
+                    Intent weatherIntent =
+                            getWeatherIntent(
+                                    v, target, tapAction.getIntent(), tapAction.getPendingIntent());
+                    if (weatherIntent != null) {
+                        intentStarter.startIntent(v, weatherIntent, false);
+                    } else if (tapAction.getIntent() != null
+                            || tapAction.getPendingIntent() != null) {
                         intentStarter.startFromAction(tapAction, v, showOnLockscreen);
                     }
 

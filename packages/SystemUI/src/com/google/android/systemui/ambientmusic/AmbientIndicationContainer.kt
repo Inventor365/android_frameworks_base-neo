@@ -350,7 +350,8 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
             if (
                 mUsingExtendedIndication &&
                     !mIsCurrentlyInExpandedState &&
-                    isExtendedIndicationRecognitionResult()
+                    isExtendedIndicationRecognitionResult() &&
+                    canExpandExtendedIndication()
             ) {
                 return
             }
@@ -368,7 +369,9 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
         val falsingManager = mFalsingManager
         if ((falsingManager == null || !falsingManager.isFalseTap(1)) && mUsingExtendedIndication) {
             val expanded = mIsCurrentlyInExpandedState
-            if (!expanded) {
+            if (!expanded && !canExpandExtendedIndication()) {
+                onTextClick()
+            } else if (!expanded) {
                 if (mExtendedIndication?.expandedIndicationData != null) {
                     performExpandAnimation()
                 }
@@ -395,6 +398,11 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
             mActivityStarter?.startPendingIntentDismissingKeyguard(dmpIntent)
         }
     }
+
+    // Extended indications forced on by AmbientIndicationService carry no expand path
+    private fun canExpandExtendedIndication(): Boolean =
+        mExtendedIndication?.let { it.expandedIndicationData != null || it.expandIntent != null }
+            ?: false
 
     private fun onExtendedContainerClick() {
         if (mIsCurrentlyInExpandedState) {
@@ -437,7 +445,12 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
         mIconOverride = iconOverride
         mIconDescription = iconDescription
         mExtendedIndication = extendedIndication
-        mUsingExtendedIndication = extendedIndication != null && mEnabledExtendedInteraction
+        val usingExtendedIndication = extendedIndication != null && mEnabledExtendedInteraction
+        if (usingExtendedIndication != mUsingExtendedIndication) {
+            // The cached note icon differs between modes; forced extended can switch per update
+            mAmbientMusicNoteIcon = null
+        }
+        mUsingExtendedIndication = usingExtendedIndication
 
         var drawable: Drawable? = null
         if (!isExtendedIndicationRecognitionResult()) {

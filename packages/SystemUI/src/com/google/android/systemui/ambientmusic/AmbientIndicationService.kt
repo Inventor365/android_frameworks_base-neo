@@ -110,12 +110,21 @@ class AmbientIndicationService(
                     intent.getStringExtra(
                         "com.google.android.ambientindication.extra.ICON_DESCRIPTION"
                     )
-                val useExtendedInteraction =
+                val requestedExtendedInteraction =
                     intent.getBooleanExtra(
                         "com.google.android.ambientindication.extra.USE_EXTENDED_INTERACTION",
                         false,
                     )
-                Log.i(TAG, "Using extended interaction: $useExtendedInteraction")
+                // ASI withholds extended interaction off-Pixel; use it whenever a title is sent
+                val forcedExtendedInteraction =
+                    !requestedExtendedInteraction && !songTitle.isNullOrEmpty()
+                val useExtendedInteraction =
+                    requestedExtendedInteraction || forcedExtendedInteraction
+                Log.i(
+                    TAG,
+                    "Using extended interaction: $useExtendedInteraction" +
+                        " (requested=$requestedExtendedInteraction, hasTitle=${!songTitle.isNullOrEmpty()})",
+                )
 
                 if (useExtendedInteraction) {
                     ambientIndicationInteractor.setAmbientMusic(
@@ -133,7 +142,7 @@ class AmbientIndicationService(
                             ),
                             intent.getBooleanExtra(
                                 "com.google.android.ambientindication.extra.IS_RECOGNITION_RESULT",
-                                false,
+                                forcedExtendedInteraction,
                             ),
                             intent.getBooleanExtra(
                                 "com.google.android.ambientindication.extra.IS_SONG_SEARCHING",

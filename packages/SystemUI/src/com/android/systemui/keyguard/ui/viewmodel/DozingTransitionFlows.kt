@@ -117,7 +117,9 @@ constructor(
                     // When transitioning out of DOZING, we always want nonAuthUIAlpha to end
                     // up at 1f. Though, this doesn't matter if we're changing scenes
                     // (KeyguardState.UNDEFINED) because the views will rebind.
-                    if (startedKeyguardTransitionStep.to == LOCKSCREEN) {
+                    val wasShowing =
+                        keyguardInteractor.dozeTransitionModel.value.to.nonAuthUIAlpha() == 1f
+                    if (startedKeyguardTransitionStep.to == LOCKSCREEN && !wasShowing) {
                         dozingToLockscreenTransitionAnimation.sharedFlow(
                             duration = 150.milliseconds,
                             startTime = if (useDelay) 50.milliseconds else 0.milliseconds,

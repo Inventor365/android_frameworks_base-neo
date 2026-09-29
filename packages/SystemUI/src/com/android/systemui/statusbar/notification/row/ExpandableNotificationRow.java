@@ -4729,11 +4729,11 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
 
     @Override
     protected boolean usesTransparentBackground() {
-        // Row background should be opaque when it's displayed as a heads-up notification or
-        // displayed on keyguard.
+        // Row background should be opaque when it's displayed as a heads-up notification,
+        // except on keyguard where it gets its own blur region.
         // Also, for an unpinned HUN on the unlocked shade, the row bg should be transparent.
         return super.usesTransparentBackground()
-                && !mustStayOnScreen()
+                && (mOnKeyguard || !mustStayOnScreen())
                 && !(isChildInGroup() && !mNotificationParent.usesTransparentBackground())
                 && !mHeadsupDisappearRunning;
     }

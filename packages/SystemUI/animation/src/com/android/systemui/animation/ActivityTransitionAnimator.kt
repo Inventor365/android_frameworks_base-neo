@@ -2546,7 +2546,7 @@ constructor(
                                         it.reparent(window.leash, null)
                                         it.apply(/* sync */ false)
                                     }
-                                } catch (e: IllegalStateException) {
+                                } catch (e: Exception) {
                                     Log.e(
                                         TAG,
                                         "Failed to clean up transition leash: already released",

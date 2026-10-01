@@ -30,6 +30,8 @@ import com.android.internal.widget.LockPatternUtils
 import com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE
 import com.android.internal.widget.LockscreenCredential
 import com.android.keyguard.KeyguardSecurityModel
+import com.android.keyguard.KeyguardUpdateMonitor
+import com.android.keyguard.KeyguardUpdateMonitorCallback
 import com.android.systemui.authentication.data.repository.AuthenticationRepository.Companion.WARM_UP_THROTTLE_DURATION
 import com.android.systemui.authentication.shared.model.AuthenticationMethodModel
 import com.android.systemui.authentication.shared.model.AuthenticationMethodModel.Biometric
@@ -44,6 +46,7 @@ import com.android.systemui.broadcast.BroadcastDispatcher
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.log.table.TableLogBuffer
 import com.android.systemui.log.table.logDiffsForTable
 import com.android.systemui.scene.domain.SceneFrameworkTableLog
@@ -52,6 +55,7 @@ import com.android.systemui.statusbar.pipeline.mobile.data.repository.MobileConn
 import com.android.systemui.user.data.repository.UserRepository
 import com.android.systemui.util.kotlin.onSubscriberAdded
 import com.android.systemui.util.time.SystemClock
+import com.android.systemui.utils.coroutines.flow.conflatedCallbackFlow
 import dagger.Binds
 import dagger.Module
 import java.util.function.Function
@@ -74,6 +78,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
@@ -244,6 +249,7 @@ class AuthenticationRepositoryImpl
 constructor(
     @Background private val applicationScope: CoroutineScope,
     @Background private val backgroundDispatcher: CoroutineDispatcher,
+    @Main private val mainDispatcher: CoroutineDispatcher,
     @Application private val context: Context,
     private val clock: SystemClock,
     private val getSecurityMode: Function<Int, KeyguardSecurityModel.SecurityMode>,
@@ -252,8 +258,34 @@ constructor(
     private val devicePolicyManager: DevicePolicyManager,
     broadcastDispatcher: BroadcastDispatcher,
     mobileConnectionsRepository: MobileConnectionsRepository,
+    private val keyguardUpdateMonitor: KeyguardUpdateMonitor,
     @SceneFrameworkTableLog private val tableLogBuffer: TableLogBuffer,
 ) : AuthenticationRepository {
+
+    /**
+     * Emits on every SIM state change and subscription info refresh. At boot the SIM usually
+     * reports PIN_REQUIRED before KeyguardUpdateMonitor has loaded its subscription, which the SIM
+     * PIN security mode also needs. Once the subscription is loaded only onRefreshCarrierInfo is
+     * dispatched, and isAnySimSecure is already true, so this is what switches the bouncer from the
+     * device credential to the SIM PIN.
+     */
+    private val simStateChanges =
+        conflatedCallbackFlow {
+                val callback =
+                    object : KeyguardUpdateMonitorCallback() {
+                        override fun onSimStateChanged(subId: Int, slotId: Int, simState: Int) {
+                            trySend(Unit)
+                        }
+
+                        override fun onRefreshCarrierInfo() {
+                            trySend(Unit)
+                        }
+                    }
+                keyguardUpdateMonitor.registerCallback(callback)
+                awaitClose { keyguardUpdateMonitor.removeCallback(callback) }
+            }
+            .flowOn(mainDispatcher)
+            .onStart { emit(Unit) }
 
     override val hintedPinLength: Int = 6
 
@@ -271,9 +303,11 @@ constructor(
         )
 
     override val authenticationMethod: StateFlow<AuthenticationMethodModel> =
-        combine(userRepository.selectedUserInfo, mobileConnectionsRepository.isAnySimSecure) {
-                selectedUserInfo,
-                _ ->
+        combine(
+                userRepository.selectedUserInfo,
+                mobileConnectionsRepository.isAnySimSecure,
+                simStateChanges,
+            ) { selectedUserInfo, _, _ ->
                 selectedUserInfo.id
             }
             .flatMapLatest { selectedUserId ->

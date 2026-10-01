@@ -34,6 +34,7 @@ import com.android.systemui.authentication.shared.model.AuthenticationResult
 import com.android.systemui.coroutines.collectLastValue
 import com.android.systemui.coroutines.collectValues
 import com.android.systemui.flags.EnableSceneContainer
+import com.android.keyguard.keyguardUpdateMonitor
 import com.android.systemui.kosmos.testDispatcher
 import com.android.systemui.kosmos.testScope
 import com.android.systemui.log.table.logcatTableLogBuffer
@@ -103,6 +104,7 @@ class AuthenticationRepositoryTest : SysuiTestCase() {
             AuthenticationRepositoryImpl(
                 applicationScope = testScope.backgroundScope,
                 backgroundDispatcher = kosmos.testDispatcher,
+                mainDispatcher = kosmos.testDispatcher,
                 clock = clock,
                 getSecurityMode = getSecurityMode,
                 userRepository = userRepository,
@@ -110,6 +112,7 @@ class AuthenticationRepositoryTest : SysuiTestCase() {
                 devicePolicyManager = devicePolicyManager,
                 broadcastDispatcher = fakeBroadcastDispatcher,
                 mobileConnectionsRepository = mobileConnectionsRepository,
+                keyguardUpdateMonitor = kosmos.keyguardUpdateMonitor,
                 tableLogBuffer = logcatTableLogBuffer(kosmos, "sceneFrameworkTableLogBuffer"),
                 context = context,
             )

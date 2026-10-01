@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -556,9 +557,10 @@ private class DrawExpandableInOverlayNode(
 
         translate(top = topOffset, left = leftOffset) {
             // Background.
+            val color = controller.color()
             this@draw.drawBackground(
                 state,
-                controller.color(),
+                color.copy(alpha = color.alpha * state.alpha),
                 controller.borderStroke,
                 size = Size(state.width.toFloat(), state.height.toFloat()),
             )
@@ -573,6 +575,7 @@ private class DrawExpandableInOverlayNode(
                     left = (state.width - contentWidth) / 2f,
                     top = (state.height - contentHeight) / 2f,
                 ) {
+                    contentGraphicsLayer.alpha = state.alpha
                     drawLayer(contentGraphicsLayer)
                 }
             }
@@ -661,7 +664,9 @@ private fun AnimatedContentInOverlay(
                 ComposeView(context).apply {
                     setContent {
                         Box(
-                            Modifier.fillMaxSize().drawWithContent {
+                            Modifier.fillMaxSize()
+                                .graphicsLayer { alpha = controller.animatorState?.alpha ?: 1f }
+                                .drawWithContent {
                                 val animatorState =
                                     controller.animatorState ?: return@drawWithContent
                                 if (!animatorState.visible) {

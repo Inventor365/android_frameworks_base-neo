@@ -295,7 +295,11 @@ constructor(
         }
 
         backgroundView =
-            FrameLayout(transitionContainer.context).also { transitionContainerOverlay.add(it) }
+            FrameLayout(transitionContainer.context).also {
+                // Only draws the background drawable, so alpha needs no offscreen buffer.
+                it.forceHasOverlappingRendering(false)
+                transitionContainerOverlay.add(it)
+            }
 
         // We wrap the ghosted view background and use it to draw the expandable background. Its
         // alpha will be set to 0 as soon as we start drawing the expanding background.
@@ -367,6 +371,15 @@ constructor(
             ghostView.visibility = View.VISIBLE
             backgroundView.visibility = View.VISIBLE
         }
+        // While fading, keep the ghost in a hardware layer so that the per-frame scale and alpha
+        // only recomposite it instead of redrawing the ghosted view into an offscreen buffer.
+        val fading = state.alpha < 1f
+        val layerType = if (fading) View.LAYER_TYPE_HARDWARE else View.LAYER_TYPE_NONE
+        if (ghostView.layerType != layerType) {
+            ghostView.setLayerType(layerType, null)
+        }
+        ghostView.alpha = state.alpha
+        backgroundView.alpha = state.alpha
 
         fillGhostedViewState(ghostedViewState)
         val leftChange = state.left - ghostedViewState.left

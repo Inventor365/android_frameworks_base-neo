@@ -50,6 +50,16 @@ import java.util.concurrent.Executor
 import kotlin.math.roundToInt
 
 private const val TAG = "DialogTransitionAnimator"
+private const val DIM_AND_BLUR_FLAGS =
+    WindowManager.LayoutParams.FLAG_DIM_BEHIND or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+
+// Crossfade of translucent dialogs, in linear animation progress.
+private const val CROSSFADE_OUT_END = 0.4f
+private const val CROSSFADE_IN_START = 0.15f
+private const val CROSSFADE_IN_END = 0.55f
+
+private fun fraction(progress: Float, start: Float, end: Float) =
+    ((progress - start) / (end - start)).coerceIn(0f, 1f)
 
 /**
  * A class that allows dialogs to be started in a seamless way from a view that is transforming
@@ -515,7 +525,7 @@ constructor(
                 animatedDialog.prepareForStackDismiss()
 
                 // Remove the dim.
-                dialog.window?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                dialog.window?.clearFlags(DIM_AND_BLUR_FLAGS)
             }
 
             override fun onTransitionAnimationEnd(isExpandingFullyAbove: Boolean) {
@@ -658,6 +668,9 @@ class AnimatedDialog(
      * controlled by [controller].
      */
     private var isLaunching = true
+
+    /** Whether the dialog asked for a blur behind it, applied only while it is shown. */
+    private var blurBehind = false
 
     /** Whether we are currently dismissing/hiding the dialog by animating into its source. */
     private var isDismissing = false
@@ -813,8 +826,11 @@ class AnimatedDialog(
             }
         )
 
-        // Disable the dim. We will enable it once we start the animation.
-        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        // Disable the dim and blur. We will enable them once we start the animation, so that the
+        // window manager fades them in and out together with the dialog.
+        blurBehind =
+            window.attributes.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND != 0
+        window.clearFlags(DIM_AND_BLUR_FLAGS)
 
         // Override the dialog dismiss() so that we can animate the exit before actually dismissing
         // the dialog.
@@ -903,8 +919,11 @@ class AnimatedDialog(
             hasInstrumentedJank = true
         }
 
-        // Show the background dim.
-        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        // Show the background dim and blur.
+        dialog.window?.addFlags(
+            WindowManager.LayoutParams.FLAG_DIM_BEHIND or
+                if (blurBehind) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0
+        )
 
         startAnimation(
             controller = controller,
@@ -1004,7 +1023,7 @@ class AnimatedDialog(
             isLaunching = false,
             onLaunchAnimationStart = {
                 // Remove the dim background as soon as we start the animation.
-                dialog.window?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                dialog.window?.clearFlags(DIM_AND_BLUR_FLAGS)
 
                 // While collapsing the dialog with animation, allow other quick tiles to be
                 // clickable.
@@ -1122,11 +1141,43 @@ class AnimatedDialog(
                     progress: Float,
                     linearProgress: Float,
                 ) {
-                    startController.onTransitionAnimationProgress(state, progress, linearProgress)
+                    if (Color.alpha(originalDialogBackgroundColor) < 0xFF) {
+                        // Without the opaque window background layer hiding the swap, crossfade
+                        // the start and end views instead of switching between them.
+                        val startAlpha =
+                            1f - fraction(linearProgress, 0f, CROSSFADE_OUT_END)
+                        val endAlpha =
+                            fraction(linearProgress, CROSSFADE_IN_START, CROSSFADE_IN_END)
+                        state.visible = startAlpha > 0f
+                        state.alpha = startAlpha
+                        startController.onTransitionAnimationProgress(
+                            state,
+                            progress,
+                            linearProgress,
+                        )
+                        state.visible = endAlpha > 0f
+                        state.alpha = endAlpha
+                        endController.onTransitionAnimationProgress(
+                            state,
+                            progress,
+                            linearProgress,
+                        )
+                        state.alpha = 1f
+                    } else {
+                        startController.onTransitionAnimationProgress(
+                            state,
+                            progress,
+                            linearProgress,
+                        )
 
-                    // The end view is visible only iff the starting view is not visible.
-                    state.visible = !state.visible
-                    endController.onTransitionAnimationProgress(state, progress, linearProgress)
+                        // The end view is visible only iff the starting view is not visible.
+                        state.visible = !state.visible
+                        endController.onTransitionAnimationProgress(
+                            state,
+                            progress,
+                            linearProgress,
+                        )
+                    }
 
                     // animate touch Interceptor view
                     updateTouchInterceptorViewConstraints(state)
@@ -1147,7 +1198,14 @@ class AnimatedDialog(
             transitionAnimator.startAnimation(
                 controller,
                 { endController.createAnimatorState() },
-                originalDialogBackgroundColor,
+                // The window background layer bridges the swap between the source and the dialog
+                // by covering them with an opaque color. With a translucent dialog it would only
+                // stack with it and flash white, so let the crossfade show through.
+                if (Color.alpha(originalDialogBackgroundColor) < 0xFF) {
+                    Color.TRANSPARENT
+                } else {
+                    originalDialogBackgroundColor
+                },
                 startVelocity =
                     if (Flags.enableDialogSpringAnimation()) {
                         // initial speed would be 0, if flag is set

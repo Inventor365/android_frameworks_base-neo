@@ -283,6 +283,9 @@ class TransitionAnimator(
 
         /** Whether the expanding view should be visible or hidden. */
         var visible: Boolean = true
+
+        /** Opacity of the expanding view, used to crossfade it instead of swapping [visible]. */
+        var alpha: Float = 1f
     }
 
     /** Encapsulated the state of a multi-spring animation. */

@@ -213,7 +213,10 @@ class TransitionDelegate(
                             state.topCornerRadius,
                             state.bottomCornerRadius,
                         )
-                        .apply { visible = state.visible }
+                        .apply {
+                            visible = state.visible
+                            alpha = state.alpha
+                        }
 
                 mutableTransitionState.currentComposeViewInOverlay?.let {
                     measureAndLayoutComposeViewInOverlay(it, state)

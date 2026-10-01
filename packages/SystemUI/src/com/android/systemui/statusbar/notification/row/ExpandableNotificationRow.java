@@ -39,6 +39,8 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorMatrixColorFilter;
+import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -4318,13 +4320,39 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
-        canvas.save();
+        final boolean ambientDark = drawsAmbientDark();
+        if (ambientDark) {
+            canvas.saveLayer(null, AMBIENT_DARK_PAINT);
+        } else {
+            canvas.save();
+        }
         if (mExpandingClipPath != null && (mExpandAnimationRunning || mChildIsExpanding)) {
             // If we're launching a notification, let's clip if a clip rounded to the clipPath
             canvas.clipPath(mExpandingClipPath);
         }
         super.dispatchDraw(canvas);
         canvas.restore();
+    }
+
+    /**
+     * A notification pulsing on the ambient display is inflated for the light theme, which shows
+     * as a white card on the black screen. Draw it through a hue preserving inversion instead.
+     */
+    private boolean drawsAmbientDark() {
+        return showingPulsing() && isDozing()
+                && (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                        != Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    // Inverts lightness and rotates the hue by 180 degrees so colors keep their hue.
+    private static final Paint AMBIENT_DARK_PAINT = new Paint();
+    static {
+        AMBIENT_DARK_PAINT.setColorFilter(new ColorMatrixColorFilter(new float[] {
+                0.574f, -1.430f, -0.144f, 0, 255,
+                -0.426f, -0.430f, -0.144f, 0, 255,
+                -0.426f, -1.430f, 0.856f, 0, 255,
+                0, 0, 0, 1, 0,
+        }));
     }
 
     @Override

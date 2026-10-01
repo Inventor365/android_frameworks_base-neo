@@ -132,6 +132,7 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     protected boolean mOnKeyguard;
     protected boolean mIsBlurSupported;
     private float mAncestorBlurRegionAlpha = 1f;
+    private float mAppearBlurRegionAlpha = 1f;
 
     public ActivatableNotificationView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -364,6 +365,13 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
         mIsBlurSupported = isBlurSupported;
         if (usedTransparentBackground != usesTransparentBackground()) {
             updateBackgroundTint();
+            mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
+        }
+    }
+
+    /** Re-evaluates whether the background draws its own blur region. */
+    protected void updateBlurredBackground() {
+        if (mBackgroundNormal != null) {
             mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
         }
     }
@@ -701,6 +709,11 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
 
     private void setContentAlpha(float contentAlpha) {
         setAlphaAndLayerType(getContentView(), contentAlpha);
+        // The appear animation only fades the content, so fade the blur region with it.
+        if (mAppearBlurRegionAlpha != contentAlpha) {
+            mAppearBlurRegionAlpha = contentAlpha;
+            updateBlurRegionAlpha();
+        }
         // After updating the current view, reset all views.
         if (contentAlpha == 1f) {
             resetAllContentAlphas();
@@ -904,10 +917,10 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     protected float getEffectiveBlurRegionAlpha() {
-        return mAncestorBlurRegionAlpha * getAlpha();
+        return mAncestorBlurRegionAlpha * mAppearBlurRegionAlpha * getAlpha();
     }
 
-    private void updateBlurRegionAlpha() {
+    protected void updateBlurRegionAlpha() {
         if (mBackgroundNormal != null) {
             mBackgroundNormal.setBlurRegionAlpha(getEffectiveBlurRegionAlpha());
         }

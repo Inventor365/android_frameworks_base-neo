@@ -21,6 +21,7 @@ import static android.view.accessibility.AccessibilityEvent.CONTENT_CHANGE_TYPE_
 import static android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
 
 import static android.app.Flags.enableAutomationNotificationUi;
+import static com.android.systemui.Flags.lockscreenBlurForNotifications;
 import static com.android.systemui.Flags.notificationRowTransparency;
 import static com.android.systemui.statusbar.NotificationLockscreenUserManager.REDACTION_TYPE_NONE;
 import static com.android.systemui.statusbar.notification.NotificationUtils.logKey;
@@ -962,6 +963,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         }
         if (notificationRowTransparency()) {
             updateBackgroundTint();
+            updateBlurredBackground();
         }
     }
 
@@ -1046,6 +1048,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         mMustStayOnScreen = false;
         if (notificationRowTransparency()) {
             updateBackgroundTint();
+            updateBlurredBackground();
         }
     }
 
@@ -1315,6 +1318,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
 
         if (notificationRowTransparency()) {
             updateBackgroundTint();
+            updateBlurredBackground();
         }
         setChronometerRunning(mLastChronometerRunning);
         if (isAboveShelf() != wasAboveShelf) {
@@ -1872,6 +1876,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         }
         if (notificationRowTransparency()) {
             updateBackgroundTint();
+            updateBlurredBackground();
         }
     }
 
@@ -3150,6 +3155,12 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
     @Override
     public void setAlpha(float alpha) {
         super.setAlpha(alpha);
+        updateChildrenBlurRegionAlpha();
+    }
+
+    @Override
+    protected void updateBlurRegionAlpha() {
+        super.updateBlurRegionAlpha();
         updateChildrenBlurRegionAlpha();
     }
 
@@ -4729,12 +4740,18 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
 
     @Override
     protected boolean usesTransparentBackground() {
-        // Row background should be opaque when it's displayed as a heads-up notification,
-        // except on keyguard where it gets its own blur region.
-        // Also, for an unpinned HUN on the unlocked shade, the row bg should be transparent.
+        // Heads-ups stay transparent everywhere: in the expanded shade they sit over the shade
+        // blur, and on keyguard or pinned over other content they get their own blur region.
         return super.usesTransparentBackground()
-                && (mOnKeyguard || !mustStayOnScreen())
-                && !(isChildInGroup() && !mNotificationParent.usesTransparentBackground())
-                && !mHeadsupDisappearRunning;
+                && !(isChildInGroup() && !mNotificationParent.usesTransparentBackground());
+    }
+
+    @Override
+    protected boolean usesBlurredBackground() {
+        // A heads-up pinned over the launcher or an app has no blur behind it, so it gets its own
+        // blur region, kept while it slides away.
+        return super.usesBlurredBackground()
+                || (!mOnKeyguard && (isPinned() || mHeadsupDisappearRunning)
+                        && usesTransparentBackground() && lockscreenBlurForNotifications());
     }
 }

@@ -5975,7 +5975,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
             // TODO(b/233286785): Add sync support to wallpaper.
             return true;
         }
-        if (mActivityRecord != null && mViewVisibility != View.VISIBLE
+        if ((mActivityRecord != null || !mHasSurface) && mViewVisibility != View.VISIBLE
                 && mWinAnimator.mAttrType != TYPE_BASE_APPLICATION
                 && mWinAnimator.mAttrType != TYPE_APPLICATION_STARTING) {
             // Skip sync for invisible app windows which are not managed by activity lifecycle.

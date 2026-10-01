@@ -421,36 +421,60 @@ private fun addStartSideComposable(
                     }
 
             setContent {
-                val statusBarBoundsViewModel =
-                    rememberViewModel("HomeStatusBar.Bounds") {
-                        statusBarViewModel.statusBarBoundsViewModelFactory.create(
-                            startSideContainerView = startSideContainerView,
-                            clockView = clockView,
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val statusBarBoundsViewModel =
+                        rememberViewModel("HomeStatusBar.Bounds") {
+                            statusBarViewModel.statusBarBoundsViewModelFactory.create(
+                                startSideContainerView = startSideContainerView,
+                                clockView = clockView,
+                            )
+                        }
+
+                    var clockViewModel: ClockViewModel? = null
+                    if (showDate || ClockModernization.isEnabled) {
+                        clockViewModel =
+                            rememberViewModel("HomeStatusBar.Clock") {
+                                clockViewModelFactory.create(AmPmStyle.Gone)
+                            }
                     }
 
-                var clockViewModel: ClockViewModel? = null
-                if (showDate || ClockModernization.isEnabled) {
-                    clockViewModel =
-                        rememberViewModel("HomeStatusBar.Clock") {
-                            clockViewModelFactory.create(AmPmStyle.Gone)
+                    if (ClockModernization.isEnabled) {
+                        clockView.visibility = View.GONE
+                        WithAdaptiveTint(
+                            isDarkProvider = { bounds ->
+                                statusBarViewModel.areaDark.isDarkTheme(bounds)
+                            }
+                        ) { tint ->
+                            Clock(
+                                clockViewModel = checkNotNull(clockViewModel),
+                                textColor = tint,
+                                modifier =
+                                    Modifier.padding(end = 2.dp)
+                                        // Keep the clock's space reserved while it's hidden.
+                                        .alpha(if (statusBarViewModel.isComposeClockVisible) 1f else 0f)
+                                        .wrapContentSize()
+                                        .onGloballyPositioned { coordinates ->
+                                            val boundsInWindow = coordinates.boundsInWindow()
+                                            val bounds =
+                                                Rect(
+                                                    boundsInWindow.left.toInt(),
+                                                    boundsInWindow.top.toInt(),
+                                                    boundsInWindow.right.toInt(),
+                                                    boundsInWindow.bottom.toInt(),
+                                                )
+                                            statusBarBoundsViewModel.updateComposeClockBounds(bounds)
+                                        },
+                            )
                         }
-                }
+                    }
 
-                if (ClockModernization.isEnabled) {
-                    clockView.visibility = View.GONE
-                    WithAdaptiveTint(
-                        isDarkProvider = { bounds ->
-                            statusBarViewModel.areaDark.isDarkTheme(bounds)
-                        }
-                    ) { tint ->
-                        Clock(
-                            clockViewModel = checkNotNull(clockViewModel),
-                            textColor = tint,
+                    if (showDate) {
+                        VariableDayDate(
+                            longerDateText = checkNotNull(clockViewModel).longerDateText,
+                            shorterDateText = clockViewModel.shorterDateText,
+                            textColor = colorAttr(R.attr.wallpaperTextColor),
                             modifier =
-                                Modifier.padding(end = 2.dp)
-                                    // Keep the clock's space reserved while it's hidden.
-                                    .alpha(if (statusBarViewModel.isComposeClockVisible) 1f else 0f)
+                                Modifier.padding(horizontal = 4.dp)
                                     .wrapContentSize()
                                     .onGloballyPositioned { coordinates ->
                                         val boundsInWindow = coordinates.boundsInWindow()
@@ -461,68 +485,46 @@ private fun addStartSideComposable(
                                                 boundsInWindow.right.toInt(),
                                                 boundsInWindow.bottom.toInt(),
                                             )
-                                        statusBarBoundsViewModel.updateComposeClockBounds(bounds)
+                                        statusBarBoundsViewModel.updateDateBounds(bounds)
                                     },
                         )
                     }
-                }
 
-                if (showDate) {
-                    VariableDayDate(
-                        longerDateText = checkNotNull(clockViewModel).longerDateText,
-                        shorterDateText = clockViewModel.shorterDateText,
-                        textColor = colorAttr(R.attr.wallpaperTextColor),
-                        modifier =
-                            Modifier.padding(horizontal = 4.dp)
-                                .wrapContentSize()
-                                .onGloballyPositioned { coordinates ->
-                                    val boundsInWindow = coordinates.boundsInWindow()
-                                    val bounds =
-                                        Rect(
-                                            boundsInWindow.left.toInt(),
-                                            boundsInWindow.top.toInt(),
-                                            boundsInWindow.right.toInt(),
-                                            boundsInWindow.bottom.toInt(),
-                                        )
-                                    statusBarBoundsViewModel.updateDateBounds(bounds)
-                                },
-                    )
-                }
+                    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                    val density = context.resources.displayMetrics.density
 
-                val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-                val density = context.resources.displayMetrics.density
+                    val chipsMaxWidth: Dp =
+                        remember(
+                            appHandlesViewModel.appHandleBounds,
+                            statusBarBoundsViewModel.startSideContainerBounds,
+                            statusBarBoundsViewModel.dateBounds,
+                            statusBarBoundsViewModel.clockBounds,
+                            isRtl,
+                            density,
+                        ) {
+                            chipsMaxWidth(
+                                appHandles = appHandlesViewModel.appHandleBounds,
+                                startSideContainerBounds =
+                                    statusBarBoundsViewModel.startSideContainerBounds,
+                                dateBounds = statusBarBoundsViewModel.dateBounds,
+                                clockBounds = statusBarBoundsViewModel.clockBounds,
+                                isRtl = isRtl,
+                                density = density,
+                            )
+                        }
 
-                val chipsMaxWidth: Dp =
-                    remember(
-                        appHandlesViewModel.appHandleBounds,
-                        statusBarBoundsViewModel.startSideContainerBounds,
-                        statusBarBoundsViewModel.dateBounds,
-                        statusBarBoundsViewModel.clockBounds,
-                        isRtl,
-                        density,
-                    ) {
-                        chipsMaxWidth(
-                            appHandles = appHandlesViewModel.appHandleBounds,
-                            startSideContainerBounds =
-                                statusBarBoundsViewModel.startSideContainerBounds,
-                            dateBounds = statusBarBoundsViewModel.dateBounds,
-                            clockBounds = statusBarBoundsViewModel.clockBounds,
-                            isRtl = isRtl,
-                            density = density,
+                    val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
+                    if (chipsVisibilityModel.areChipsAllowed) {
+                        OngoingActivityChips(
+                            chips = chipsVisibilityModel.chips,
+                            iconViewStore = iconViewStore,
+                            onChipBoundsChanged = statusBarViewModel::onChipBoundsChanged,
+                            // TODO(b/393581408): Now that we always enforce a max width on the chips,
+                            //  we should be able to convert the chips to a LazyRow and get some
+                            //  animations for free.
+                            modifier = Modifier.sysUiResTagContainer().widthIn(max = chipsMaxWidth),
                         )
                     }
-
-                val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
-                if (chipsVisibilityModel.areChipsAllowed) {
-                    OngoingActivityChips(
-                        chips = chipsVisibilityModel.chips,
-                        iconViewStore = iconViewStore,
-                        onChipBoundsChanged = statusBarViewModel::onChipBoundsChanged,
-                        // TODO(b/393581408): Now that we always enforce a max width on the chips,
-                        //  we should be able to convert the chips to a LazyRow and get some
-                        //  animations for free.
-                        modifier = Modifier.sysUiResTagContainer().widthIn(max = chipsMaxWidth),
-                    )
                 }
             }
         }

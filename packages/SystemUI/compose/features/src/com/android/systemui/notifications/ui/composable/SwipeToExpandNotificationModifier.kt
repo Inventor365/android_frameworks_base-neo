@@ -213,7 +213,8 @@ private class SwipeToExpandNotificationNode(
             var isExpanding = false
             var currentHeight = targetView.actualHeight.toFloat()
             val collapsedHeight = targetView.collapsedHeight.toFloat()
-            val expandedHeight = targetView.maxContentHeight.toFloat()
+            // maxContentHeight can be below the collapsed height for non-expandable rows.
+            val expandedHeight = maxOf(targetView.maxContentHeight.toFloat(), collapsedHeight)
 
             /** Inline helper to handle the drag for an expansion. */
             fun processDrag(dragAmount: Float) {

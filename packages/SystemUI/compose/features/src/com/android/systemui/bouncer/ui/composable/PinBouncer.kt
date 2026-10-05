@@ -636,6 +636,10 @@ private fun sendAccessibilityEvent(
     }
 
     val event = eventFactory()
+    // Backspace on an empty PIN deletes nothing.
+    if (event is PinAccessibilityEvent.CharacterDeleted && event.pinLengthBeforeChange == 0) {
+        return
+    }
 
     view.sendAccessibilityEventUnchecked(
         AccessibilityEvent(AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED).apply {

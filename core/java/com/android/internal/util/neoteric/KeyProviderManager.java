@@ -47,9 +47,40 @@ public final class KeyProviderManager {
                 return;
             }
 
-            if (!loadFromXmlSetting(context)) {
-                loadFromConfigArray(context);
+            if (isPlayIntegrityCall() && loadFromXmlSetting(context)) {
+                return;
             }
+            loadFromConfigArray(context);
+        }
+
+        private static boolean isPlayIntegrityCall() {
+            String packageName = ActivityThread.currentPackageName();
+            String processName = ActivityThread.currentProcessName();
+
+            if (packageName == null) {
+                Context context = getApplicationContext();
+                if (context != null) {
+                    packageName = context.getPackageName();
+                }
+            }
+
+            if ("com.google.android.gms".equals(packageName)
+                    || "com.android.vending".equals(packageName)
+                    || (processName != null && (processName.startsWith("com.google.android.gms")
+                            || processName.startsWith("com.android.vending")))) {
+                return true;
+            }
+
+            try {
+                for (StackTraceElement elem : Thread.currentThread().getStackTrace()) {
+                    if (elem.getClassName().contains("DroidGuard")) {
+                        return true;
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+
+            return false;
         }
 
         private boolean loadFromXmlSetting(Context ctx) {
@@ -131,7 +162,7 @@ public final class KeyProviderManager {
                     return false;
                 }
 
-                Log.i(TAG, "Loaded keybox from XML setting");
+                Log.i(TAG, "Loaded keybox from XML setting for " + ActivityThread.currentPackageName());
                 return true;
             } catch (Exception e) {
                 Log.e(TAG, "XML keybox load failed", e);
@@ -147,7 +178,9 @@ public final class KeyProviderManager {
                 }
             }
 
-            if (!hasKeybox()) {
+            if (hasKeybox()) {
+                Log.i(TAG, "Loaded keybox from config array for " + ActivityThread.currentPackageName());
+            } else {
                 Log.w(TAG, "Incomplete keybox provided by overlays");
             }
         }

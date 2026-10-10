@@ -110,8 +110,10 @@ public class KeyboxImitationHooks {
                 certificateHolder.getSubjectPublicKeyInfo()
         );
 
-        ContentSigner contentSigner = new JcaContentSignerBuilder(
-                leafCertificate.getSigAlgName()).build(privateKey);
+        String sigAlg = KeyProperties.KEY_ALGORITHM_EC.equalsIgnoreCase(keyAlgorithm)
+                ? "SHA256withECDSA"
+                : "SHA256withRSA";
+        ContentSigner contentSigner = new JcaContentSignerBuilder(sigAlg).build(privateKey);
 
         Context context = ActivityThread.currentApplication();
         if (context == null) {

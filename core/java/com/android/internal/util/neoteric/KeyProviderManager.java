@@ -194,14 +194,12 @@ public final class KeyProviderManager {
 
         private String[] getCertificateChain(String prefix) {
             List<String> dataList = new ArrayList<>();
-            for (String key : keyboxData.keySet()) {
-                if (key.startsWith(prefix + ".CERT_")) {
-                    dataList.add(keyboxData.get(key));
-                }
+            int i = 1;
+            while (keyboxData.containsKey(prefix + ".CERT_" + i)) {
+                dataList.add(keyboxData.get(prefix + ".CERT_" + i));
+                i++;
             }
-            String[] chain = dataList.toArray(String[]::new);
-            Arrays.sort(chain);
-            return chain;
+            return dataList.toArray(String[]::new);
         }
     }
 }

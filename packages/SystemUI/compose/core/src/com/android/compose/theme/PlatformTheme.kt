@@ -61,7 +61,7 @@ fun PlatformTheme(isDarkTheme: Boolean = isSystemInDarkTheme(), content: @Compos
             TraceUtils.trace("PlatformTheme.androidColorScheme") { AndroidColorScheme(context) }
         }
 
-    val typefaceNames = remember(context) { TypefaceNames.get(context) }
+    val typefaceNames = remember(context, currentAssetsSeq) { TypefaceNames.get(context) }
     val typefaceTokens = remember(typefaceNames) { TypefaceTokens(typefaceNames) }
     val typography =
         remember(typefaceTokens) {

@@ -24,6 +24,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Indication
@@ -55,6 +56,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.changedToDown
@@ -107,6 +109,24 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
         viewModel.isDigitButtonAnimationEnabled.collectAsStateWithLifecycle()
 
     val buttonScaleAnimatables = remember { List(12) { Animatable(1f) } }
+
+    // Cascade the rows in, top to bottom, the same way the emergency button appears.
+    val rowAppearAnimatables = remember { List(4) { Animatable(0f) } }
+    LaunchedEffect(Unit) {
+        rowAppearAnimatables.forEachIndexed { row, animatable ->
+            launch {
+                animatable.animateTo(
+                    targetValue = 1f,
+                    animationSpec =
+                        tween(
+                            durationMillis = 450,
+                            delayMillis = 133 + row * PinRowAppearStaggerMillis,
+                            easing = LinearEasing,
+                        ),
+                )
+            }
+        }
+    }
     LaunchedEffect(animateFailure) {
         // Show the failure animation if the user entered the wrong input.
         if (animateFailure) {
@@ -153,6 +173,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
                     viewModel.onPinButtonClicked(digit)
                 },
                 scaling = buttonScaleAnimatables[index]::value,
+                appear = rowAppearAnimatables[index / 3]::value,
                 isAnimationEnabled = isDigitButtonAnimationEnabled,
                 onPointerDown = viewModel::onDigitButtonDown,
                 backgroundColor = Color(context.pinDigitBg()),
@@ -193,6 +214,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
                 stringResource(R.string.keyguard_accessibility_pin_delete_long_click),
             appearance = viewModel.backspaceButtonAppearance,
             scaling = buttonScaleAnimatables[9]::value,
+            appear = rowAppearAnimatables[3]::value,
             elementId = "delete_button",
             backgroundColor = Color(context.pinActionBg()),
         )
@@ -210,6 +232,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
                 viewModel.onPinButtonClicked(0)
             },
             scaling = buttonScaleAnimatables[10]::value,
+            appear = rowAppearAnimatables[3]::value,
             isAnimationEnabled = isDigitButtonAnimationEnabled,
             onPointerDown = viewModel::onDigitButtonDown,
             backgroundColor = Color(context.pinDigitBg()),
@@ -227,6 +250,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
             onPointerDown = { viewModel.onDown() },
             appearance = confirmButtonAppearance,
             scaling = buttonScaleAnimatables[11]::value,
+            appear = rowAppearAnimatables[3]::value,
             elementId = "key_enter",
             backgroundColor = Color(context.pinActionBg()),
         )
@@ -243,6 +267,7 @@ fun DigitButton(
     scaling: () -> Float,
     isAnimationEnabled: Boolean,
     backgroundColor: Color,
+    appear: () -> Float = { 1f },
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -268,6 +293,7 @@ fun DigitButton(
                 val scale = if (isAnimationEnabled) scaling() else 1f
                 scaleX = scale
                 scaleY = scale
+                applyAppear(appear())
             },
     ) { contentColor ->
         BasicText(
@@ -291,6 +317,7 @@ fun ActionButton(
     appearance: ActionButtonAppearance,
     scaling: () -> Float,
     backgroundColor: Color,
+    appear: () -> Float = { 1f },
 ) {
     val isHidden = appearance == ActionButtonAppearance.Hidden
     val hiddenAlpha by animateFloatAsState(if (isHidden) 0f else 1f, label = "Action button alpha")
@@ -319,6 +346,7 @@ fun ActionButton(
                 val scale = scaling()
                 scaleX = scale
                 scaleY = scale
+                applyAppear(appear())
             },
     ) { contentColor ->
         Icon(icon = icon, tint = contentColor())
@@ -574,6 +602,15 @@ private fun Modifier.pinPadButtonInput(
             }
     }
 }
+
+/** Slides a PIN button up from below and fades it in, like the bouncer emergency button. */
+private fun GraphicsLayerScope.applyAppear(progress: Float) {
+    if (progress >= 1f) return
+    translationY = (1f - Easings.StandardDecelerate.transform(progress)) * 80.dp.toPx()
+    alpha *= Easings.LegacyDecelerate.transform(progress)
+}
+
+private const val PinRowAppearStaggerMillis = 40
 
 /**
  * (Re)requests focus as needed. Done as a separate `@Composable` function to make sure that the

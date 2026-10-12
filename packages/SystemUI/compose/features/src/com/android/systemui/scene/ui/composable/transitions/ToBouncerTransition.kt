@@ -51,6 +51,17 @@ fun TransitionBuilder.toBouncerTransition(viewModel: ToBouncerTransitionViewMode
     }
 
     fade(Bouncer.Elements.Background)
+    bouncerContentInTransition(viewModel)
+}
+
+/**
+ * Fades the bouncer content in, after the passive auth delay if there is one. [translate] also
+ * slides it up from [BOUNCER_INITIAL_TRANSLATION].
+ */
+fun TransitionBuilder.bouncerContentInTransition(
+    viewModel: ToBouncerTransitionViewModel,
+    translate: Boolean = true,
+) {
     val delayFractionOfTransition =
         viewModel.delayForPassiveAuth.inWholeMilliseconds.toFloat() /
             (BOUNCER_CONTENTS_ALPHA_IN_ANIMATION_DURATION +
@@ -68,28 +79,30 @@ fun TransitionBuilder.toBouncerTransition(viewModel: ToBouncerTransitionViewMode
             ),
         )
 
-        transformation(
-            Bouncer.Elements.Content,
-            PassiveAuthDelayPropertyTransformationFactory(
-                viewModel.delayForPassiveAuth,
-                PropertyTransformation.Property.Offset,
-                initialValue = { Offset(0f, y = BOUNCER_INITIAL_TRANSLATION.toPx()) },
-                targetValue = { Offset(x = 0f, y = 0f) },
-                YOffsetVectorConverter,
-                transitionProgressToValue = {
-                    Offset(
-                        x = 0f,
-                        y =
-                            (1 -
-                                FastOutSlowInEasing.transform(
-                                    it.normalize(delayFractionOfTransition, 1f)
-                                )) * BOUNCER_INITIAL_TRANSLATION.toPx(),
-                    )
-                },
-            ),
-        )
+        if (translate) {
+            transformation(
+                Bouncer.Elements.Content,
+                PassiveAuthDelayPropertyTransformationFactory(
+                    viewModel.delayForPassiveAuth,
+                    PropertyTransformation.Property.Offset,
+                    initialValue = { Offset(0f, y = BOUNCER_INITIAL_TRANSLATION.toPx()) },
+                    targetValue = { Offset(x = 0f, y = 0f) },
+                    YOffsetVectorConverter,
+                    transitionProgressToValue = {
+                        Offset(
+                            x = 0f,
+                            y =
+                                (1 -
+                                    FastOutSlowInEasing.transform(
+                                        it.normalize(delayFractionOfTransition, 1f)
+                                    )) * BOUNCER_INITIAL_TRANSLATION.toPx(),
+                        )
+                    },
+                ),
+            )
+        }
     } else {
-        translate(Bouncer.Elements.Content, y = BOUNCER_INITIAL_TRANSLATION)
+        if (translate) translate(Bouncer.Elements.Content, y = BOUNCER_INITIAL_TRANSLATION)
         fade(Bouncer.Elements.Content)
     }
 }

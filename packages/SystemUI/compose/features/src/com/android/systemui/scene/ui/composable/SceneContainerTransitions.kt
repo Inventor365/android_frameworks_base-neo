@@ -474,17 +474,27 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
             }
             from(Scenes.Lockscreen, to = Overlays.Bouncer) {
                 lockscreenToBouncerTransition(
-                    toBouncerTransitionViewModel = toBouncerTransitionViewModel
+                    toBouncerTransitionViewModel = toBouncerTransitionViewModel,
+                    shadeExpansionMotion = shadeExpansionMotion,
+                    revealHaptics = revealHaptics,
                 )
             }
-            from(Overlays.Bouncer, to = Scenes.Lockscreen) { bouncerToLockscreenTransition() }
+            from(Overlays.Bouncer, to = Scenes.Lockscreen) {
+                bouncerToLockscreenTransition(
+                    shadeExpansionMotion = shadeExpansionMotion,
+                    revealHaptics = revealHaptics,
+                )
+            }
             from(
                 Overlays.Bouncer,
                 to = Scenes.Lockscreen,
                 key = TransitionKey.PredictiveBack,
                 preview = { fromBouncerPreview() },
             ) {
-                bouncerToLockscreenTransition()
+                bouncerToLockscreenTransition(
+                    shadeExpansionMotion = shadeExpansionMotion,
+                    revealHaptics = revealHaptics,
+                )
             }
             from(Scenes.Communal, to = Overlays.Bouncer) {
                 toBouncerTransition(viewModel = toBouncerTransitionViewModel)

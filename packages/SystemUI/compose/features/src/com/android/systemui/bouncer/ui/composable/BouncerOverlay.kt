@@ -29,9 +29,10 @@ import androidx.compose.foundation.overscroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -42,6 +43,7 @@ import com.android.compose.animation.scene.UserAction
 import com.android.compose.animation.scene.UserActionResult
 import com.android.compose.layout.ContainerConfig
 import com.android.compose.layout.containerize
+import com.android.mechanics.behavior.verticalExpandContainerBackground
 import com.android.systemui.bouncer.ui.viewmodel.BouncerOverlayContentViewModel
 import com.android.systemui.bouncer.ui.viewmodel.BouncerUserActionsViewModel
 import com.android.systemui.compose.modifiers.sysuiResTag
@@ -50,6 +52,7 @@ import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.res.R
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.ui.composable.Overlay
+import com.android.systemui.shade.ui.composable.OverlayShade
 import com.android.systemui.statusbar.phone.SystemUIDialog
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -123,7 +126,9 @@ private fun ContentScope.BouncerOverlay(
                 } else {
                     Modifier.fillMaxSize()
                 }
-            )
+            ),
+            // The background is revealed from the bottom edge, so keep it anchored there.
+            contentAlignment = Alignment.BottomCenter,
         ) {
 
             // Background is defined in a separate Composable from BouncerContent to be able to
@@ -133,6 +138,7 @@ private fun ContentScope.BouncerOverlay(
                     .testTag(Bouncer.Elements.Background.testTag),
                 color = backgroundColor,
                 isContainerized = isContainerized,
+                isRevealing = layoutState.isTransitioning(),
             )
 
             // Separate the bouncer content into a reusable composable that doesn't have any
@@ -154,13 +160,28 @@ private fun ContentScope.BouncerOverlay(
 }
 
 @Composable
-private fun Background(modifier: Modifier, color: Color, isContainerized: Boolean) {
+private fun Background(
+    modifier: Modifier,
+    color: Color,
+    isContainerized: Boolean,
+    isRevealing: Boolean,
+) {
+    // Containerized bouncers keep their own shape, so this is only used full width.
+    val revealSpec = OverlayShade.rememberShadeExpansionMotion(isFullWidth = true)
     Box(
         modifier
             .fillMaxSize()
-            .background(
-                color = color,
-                shape = if (isContainerized) MaterialTheme.shapes.extraLarge else RectangleShape,
+            .then(
+                when {
+                    isContainerized ->
+                        Modifier.background(color = color, shape = MaterialTheme.shapes.extraLarge)
+                    // Unfold like the shade panel. The shade grows down from the top, so draw its
+                    // background upside down for the bouncer growing up from the bottom.
+                    isRevealing ->
+                        Modifier.graphicsLayer { scaleY = -1f }
+                            .verticalExpandContainerBackground(color, revealSpec)
+                    else -> Modifier.background(color = color)
+                }
             )
     )
 }

@@ -17,20 +17,38 @@
 package com.android.systemui.scene.ui.composable.transitions
 
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.unit.dp
 import com.android.compose.animation.scene.TransitionBuilder
+import com.android.compose.animation.scene.UserActionDistance
+import com.android.compose.animation.scene.reveal.ContainerRevealHaptics
+import com.android.compose.animation.scene.reveal.verticalContainerReveal
+import com.android.mechanics.behavior.VerticalExpandContainerSpec
+import com.android.systemui.bouncer.ui.composable.Bouncer
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys
 import kotlin.time.Duration.Companion.milliseconds
 
-fun TransitionBuilder.bouncerToLockscreenTransition(durationScale: Double = 1.0) {
+/** Reverse of [lockscreenToBouncerTransition]: the bouncer drops back down into the bottom edge. */
+fun TransitionBuilder.bouncerToLockscreenTransition(
+    shadeExpansionMotion: VerticalExpandContainerSpec,
+    revealHaptics: ContainerRevealHaptics,
+    durationScale: Double = 1.0,
+) {
     spec = tween(durationMillis = (DefaultDuration * durationScale).inWholeMilliseconds.toInt())
 
-    fromBouncerTransition()
+    verticalContainerReveal(
+        container = Bouncer.Elements.Background,
+        motionSpec = shadeExpansionMotion,
+        haptics = revealHaptics,
+        useMechanics = true,
+    )
+    // Keep the regular bouncer swipe distance rather than the reveal's full panel height.
+    distance = UserActionDistance { fromContent, _, _ ->
+        checkNotNull(fromContent.targetSize()).height * TO_BOUNCER_SWIPE_DISTANCE_FRACTION
+    }
+    fractionRange(end = TO_BOUNCER_FADE_FRACTION) { fade(Bouncer.Elements.Content) }
 
+    // Bring the lock screen back while the bouncer drops, instead of only once it's gone.
+    fractionRange(start = 0.2f, end = 0.7f) { fade(LockscreenElementKeys.Root) }
     fractionRange(start = 0.95f) { fade(LockscreenElementKeys.StatusBar) }
-    fractionRange(start = 0.8f) { fade(LockscreenElementKeys.Root) }
-
-    translate(LockscreenElementKeys.Notifications.Stack, y = 0.dp)
 }
 
 private val DefaultDuration = 500.milliseconds

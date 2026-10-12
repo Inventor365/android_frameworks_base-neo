@@ -57,11 +57,16 @@ constructor(
             .setupWithoutSceneContainer(edge = Edge.create(from = PRIMARY_BOUNCER, to = LOCKSCREEN))
 
     val shortcutsAlpha: Flow<Float> =
-        transitionAnimation.sharedFlow(
-            duration = 250.milliseconds,
-            interpolator = EMPHASIZED_ACCELERATE,
-            onStep = { it },
-        )
+        if (SceneContainerFlag.isEnabled) {
+            // The bouncer overlay transitions fade the whole lock screen, shortcuts included.
+            emptyFlow()
+        } else {
+            transitionAnimation.sharedFlow(
+                duration = 250.milliseconds,
+                interpolator = EMPHASIZED_ACCELERATE,
+                onStep = { it },
+            )
+        }
 
     fun lockscreenAlpha(viewState: ViewStateAccessor): Flow<Float> {
         if (SceneContainerFlag.isEnabled) {

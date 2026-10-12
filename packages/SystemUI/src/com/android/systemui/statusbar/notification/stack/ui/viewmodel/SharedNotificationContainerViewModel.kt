@@ -669,6 +669,11 @@ constructor(
         return maxOf(0f, 1f - bouncerExpansion * 5f)
     }
 
+    private fun alphaForBouncerHidingToLockscreen(bouncerExpansion: Float): Float {
+        // Match the lock screen fading back in, see bouncerToLockscreenTransition.
+        return ((1f - bouncerExpansion - 0.2f) / 0.5f).coerceIn(0f, 1f)
+    }
+
     val panelAlpha = keyguardInteractor.panelAlpha
 
     private fun bouncerToGoneNotificationAlpha(viewState: ViewStateAccessor): Flow<Float> =
@@ -694,7 +699,19 @@ constructor(
                     sceneInteractor.transitionStateFlow
                         .map { it is ObservableTransitionState.Idle }
                         .distinctUntilChanged(),
-                ) { bouncerExpansion, isNotificationsExpanded, inLockscreenTransition, isIdle ->
+                    sceneInteractor.transitionStateFlow
+                        .map {
+                            it is ObservableTransitionState.Transition &&
+                                it.fromContent == Overlays.Bouncer &&
+                                it.toContent == Scenes.Lockscreen
+                        }
+                        .distinctUntilChanged(),
+                ) {
+                    bouncerExpansion,
+                    isNotificationsExpanded,
+                    inLockscreenTransition,
+                    isIdle,
+                    isHidingToLockscreen ->
                     if (isNotificationsExpanded) {
                         // While the notifications Shade is expanded, always keep the shade opaque.
                         // This is expected during the transition to bouncer and as long the bouncer
@@ -708,7 +725,9 @@ constructor(
                         // (specifically the keyguard state, to distinguish from AOD or other
                         // keyguard states on the lockscreen scene). Otherwise, let any other
                         // relevant transition values declare the alpha if necessary.
-                        if (inLockscreenTransition) {
+                        if (isHidingToLockscreen) {
+                            emit(alphaForBouncerHidingToLockscreen(bouncerExpansion))
+                        } else if (inLockscreenTransition) {
                             emit(alphaForBouncerExpansion(bouncerExpansion))
                         }
                     } else if (isIdle) {

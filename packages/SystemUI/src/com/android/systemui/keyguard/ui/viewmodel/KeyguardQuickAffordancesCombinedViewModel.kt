@@ -26,10 +26,12 @@ import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardQuickAffordanceInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
 import com.android.systemui.keyguard.domain.model.KeyguardQuickAffordanceModel
+import com.android.systemui.keyguard.shared.model.Edge
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.keyguard.shared.quickaffordance.ActivationState
 import com.android.systemui.keyguard.shared.quickaffordance.KeyguardQuickAffordancePosition
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
+import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.shared.keyguard.shared.model.KeyguardQuickAffordanceSlots
 import com.android.systemui.utils.coroutines.flow.flatMapLatestConflated
@@ -92,13 +94,23 @@ constructor(
     /** The only time the expansion is important is while lockscreen is actively displayed */
     private val shadeExpansionAlpha =
         if (SceneContainerFlag.isEnabled) {
-            showingLockscreen.flatMapLatestConflated { showingLockscreen ->
-                if (showingLockscreen) {
-                    shadeInteractor.anyExpansion.map { 1 - it }
-                } else {
-                    flowOf(0f)
+            // The bouncer overlay transitions fade the whole lock screen, so don't also hide the
+            // shortcuts until they finish.
+            combine(
+                    showingLockscreen,
+                    transitionInteractor.isInTransition(Edge.create(from = Overlays.Bouncer)),
+                    transitionInteractor.isInTransition(Edge.create(to = Overlays.Bouncer)),
+                ) { finishedInLockscreen, fromBouncer, toBouncer ->
+                    finishedInLockscreen || fromBouncer || toBouncer
                 }
-            }
+                .distinctUntilChanged()
+                .flatMapLatestConflated { showingLockscreen ->
+                    if (showingLockscreen) {
+                        shadeInteractor.anyExpansion.map { 1 - it }
+                    } else {
+                        flowOf(0f)
+                    }
+                }
         } else {
             combine(showingLockscreen, shadeInteractor.anyExpansion) { showingLockscreen, expansion
                 ->

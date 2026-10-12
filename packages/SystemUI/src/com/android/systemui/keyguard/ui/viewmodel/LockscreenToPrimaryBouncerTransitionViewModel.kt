@@ -52,13 +52,18 @@ constructor(private val blurConfig: BlurConfig, animationFlow: KeyguardTransitio
             .setupWithoutSceneContainer(edge = Edge.create(from = LOCKSCREEN, to = PRIMARY_BOUNCER))
 
     val shortcutsAlpha: Flow<Float> =
-        transitionAnimation.sharedFlow(
-            duration = 200.milliseconds,
-            onStep = { step -> 1f - step },
-            // Rapid swipes to bouncer, and may end up skipping intermediate values that would've
-            // caused a complete fade out of lockscreen elements. Ensure it goes to 0f.
-            onFinish = { 0f },
-        )
+        if (SceneContainerFlag.isEnabled) {
+            // The bouncer overlay transitions fade the whole lock screen, shortcuts included.
+            emptyFlow()
+        } else {
+            transitionAnimation.sharedFlow(
+                duration = 200.milliseconds,
+                onStep = { step -> 1f - step },
+                // Rapid swipes to bouncer, and may end up skipping intermediate values that
+                // would've caused a complete fade out of lockscreen elements. Ensure it goes to 0f.
+                onFinish = { 0f },
+            )
+        }
 
     fun lockscreenAlpha(viewState: ViewStateAccessor): Flow<Float> {
         return if (SceneContainerFlag.isEnabled) {

@@ -121,7 +121,11 @@ constructor(
                     )
             )
 
-    private val _confirmButtonAppearance = MutableStateFlow(ActionButtonAppearance.Hidden)
+    private val _confirmButtonAppearance =
+        MutableStateFlow(
+            if (interactor.isAutoConfirmEnabled.value) ActionButtonAppearance.Hidden
+            else ActionButtonAppearance.Shown
+        )
     /** Appearance of the confirm button. */
     val confirmButtonAppearance: StateFlow<ActionButtonAppearance> =
         _confirmButtonAppearance.asStateFlow()

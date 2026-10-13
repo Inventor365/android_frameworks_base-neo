@@ -303,8 +303,12 @@ object DeviceEntryIconViewBinder {
                     }
 
                     launch("$TAG#bgViewModel.alpha") {
-                        combine(bgViewModel.alpha, view.blurAlphaMultiplier) { alpha, multiplier ->
-                                alpha to multiplier
+                        combine(
+                                bgViewModel.alpha,
+                                viewModel.deviceEntryViewAlpha,
+                                view.blurAlphaMultiplier,
+                            ) { bgAlpha, viewAlpha, multiplier ->
+                                (bgAlpha * viewAlpha) to multiplier
                             }
                             .collect { (alpha, multiplier) ->
                                 bgView.alpha = alpha

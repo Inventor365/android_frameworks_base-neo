@@ -179,6 +179,36 @@ class DeviceEntryBackgroundViewModelTest : SysuiTestCase() {
             assertThat(alpha).isEqualTo(0f)
         }
 
+    @Test
+    fun alpha_emitsWhenLockscreenToGoneTransitionRuns() =
+        testScope.runTest {
+            kosmos.fingerprintPropertyRepository.supportsUdfps()
+            val alpha by collectLastValue(underTest.alpha)
+
+            kosmos.fakeKeyguardTransitionRepository.sendTransitionSteps(
+                listOf(dozingToLockscreen(0f, STARTED), dozingToLockscreen(0.1f)),
+                testScope,
+            )
+            runCurrent()
+            assertThat(alpha).isEqualTo(1.0f)
+
+            kosmos.fakeKeyguardTransitionRepository.sendTransitionSteps(
+                listOf(
+                    TransitionStep(
+                        from = KeyguardState.LOCKSCREEN,
+                        to = KeyguardState.GONE,
+                        value = 0f,
+                        transitionState = STARTED,
+                        ownerName = "DeviceEntryBackgroundViewModelTest",
+                    )
+                ),
+                testScope,
+            )
+            runCurrent()
+
+            assertThat(alpha).isEqualTo(0f)
+        }
+
     private fun lockscreenToDozing(value: Float, state: TransitionState = RUNNING): TransitionStep {
         return TransitionStep(
             from = KeyguardState.LOCKSCREEN,

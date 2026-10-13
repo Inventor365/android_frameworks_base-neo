@@ -24,6 +24,7 @@ import com.android.systemui.common.shared.colors.SurfaceEffectColors
 import com.android.systemui.common.ui.domain.interactor.ConfigurationInteractor
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
+import com.android.systemui.keyguard.shared.model.Edge
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
@@ -141,6 +142,12 @@ constructor(
                         toLockscreenEndStateTransitionViewModel.deviceEntryBackgroundViewAlpha,
                         toAodEndStateTransitionViewModel.deviceEntryBackgroundViewAlpha,
                         toDozingEndStateTransitionViewModel.deviceEntryBackgroundViewAlpha,
+                        keyguardTransitionInteractor
+                            .transition(Edge.create(to = KeyguardState.GONE))
+                            .map { 0f },
+                        keyguardTransitionInteractor
+                            .transition(Edge.create(to = KeyguardState.OCCLUDED))
+                            .map { 0f },
                     )
                     .merge()
                     .onStart {

@@ -25,8 +25,9 @@ fun TransitionBuilder.lockscreenToNotificationsShadeTransition(
     useSharedElementTransitions: Boolean,
     shadeExpansionMotion: VerticalExpandContainerSpec,
     revealHaptics: ContainerRevealHaptics,
+    isReversed: Boolean = false,
 ) {
-    lockscreenFadeOutTransition(durationScale = durationScale)
+    lockscreenFadeOutTransition(durationScale = durationScale, isReversed = isReversed)
     toNotificationsShadeTransition(
         durationScale = durationScale,
         enableSharedElements = useSharedElementTransitions,

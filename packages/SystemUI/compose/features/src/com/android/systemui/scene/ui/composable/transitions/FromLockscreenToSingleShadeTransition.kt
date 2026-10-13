@@ -23,10 +23,11 @@ fun TransitionBuilder.lockscreenToSingleShadeTransition(
     singleShadeMarginHorizontalPx: Float,
     durationScale: Double = 1.0,
     seekAnimation: Boolean = false,
+    isReversed: Boolean = false,
 ) {
     transitionDistancePx?.let { distance = UserActionDistance { _, _, _ -> transitionDistancePx } }
 
-    lockscreenFadeOutTransition(durationScale = durationScale)
+    lockscreenFadeOutTransition(durationScale = durationScale, isReversed = isReversed)
     toSingleShadeTransition(
         singleShadeMarginHorizontalPx = singleShadeMarginHorizontalPx,
         durationScale = durationScale,

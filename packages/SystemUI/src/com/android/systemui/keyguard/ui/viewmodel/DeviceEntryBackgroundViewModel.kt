@@ -49,7 +49,7 @@ class DeviceEntryBackgroundViewModel
 constructor(
     @ShadeDisplayAware val context: Context,
     val deviceEntryIconViewModel: DeviceEntryIconViewModel,
-    keyguardTransitionInteractor: KeyguardTransitionInteractor,
+    private val keyguardTransitionInteractor: KeyguardTransitionInteractor,
     @ShadeDisplayAware configurationInteractor: ConfigurationInteractor,
     alternateBouncerToAodTransitionViewModel: AlternateBouncerToAodTransitionViewModel,
     alternateBouncerToDozingTransitionViewModel: AlternateBouncerToDozingTransitionViewModel,
@@ -179,6 +179,16 @@ constructor(
                     when (sceneInteractor.get().currentScene.value) {
                         Scenes.Shade,
                         Scenes.QuickSettings -> 1f
+                        // Recreated while the shade collapses; nothing else fades the bg back in.
+                        Scenes.Lockscreen ->
+                            if (
+                                keyguardTransitionInteractor.startedKeyguardTransitionStep.value
+                                    .to == KeyguardState.LOCKSCREEN
+                            ) {
+                                1f
+                            } else {
+                                0f
+                            }
                         else -> 0f
                     }
                 } else {

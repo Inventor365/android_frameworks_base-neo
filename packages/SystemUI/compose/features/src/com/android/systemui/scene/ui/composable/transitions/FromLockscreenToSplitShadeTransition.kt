@@ -22,8 +22,9 @@ import com.android.compose.animation.scene.UserActionDistance
 fun TransitionBuilder.lockscreenToSplitShadeTransition(
     transitionDistancePx: Float,
     durationScale: Double = 1.0,
+    isReversed: Boolean = false,
 ) {
-    lockscreenFadeOutTransition(durationScale)
+    lockscreenFadeOutTransition(durationScale, isReversed)
     toSplitShadeTransition(durationScale)
 
     distance = UserActionDistance { _, _, _ -> transitionDistancePx }

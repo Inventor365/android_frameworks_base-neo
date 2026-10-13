@@ -21,11 +21,19 @@ import com.android.compose.animation.scene.TransitionBuilder
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys
 import kotlin.time.Duration.Companion.milliseconds
 
-fun TransitionBuilder.lockscreenFadeOutTransition(durationScale: Double = 1.0) {
+fun TransitionBuilder.lockscreenFadeOutTransition(
+    durationScale: Double = 1.0,
+    isReversed: Boolean = false,
+) {
     spec = tween(durationMillis = (DefaultDuration * durationScale).inWholeMilliseconds.toInt())
 
     fractionRange(end = 0.05f) { fade(LockscreenElementKeys.StatusBar) }
-    fractionRange(end = 0.2f) { fade(LockscreenElementKeys.Root) }
+    // When played in reverse, bring the lock screen back while the shade collapses, not at the end.
+    if (isReversed) {
+        fractionRange(start = 0.3f, end = 0.8f) { fade(LockscreenElementKeys.Root) }
+    } else {
+        fractionRange(end = 0.2f) { fade(LockscreenElementKeys.Root) }
+    }
 
     fade(LockscreenElementKeys.BehindScrim)
 }

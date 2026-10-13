@@ -19,6 +19,7 @@ package com.android.systemui.keyguard.ui.viewmodel
 
 import androidx.annotation.VisibleForTesting
 import com.android.app.tracing.FlowTracing.traceEmissionCount
+import com.android.compose.animation.scene.ContentKey
 import com.android.app.tracing.coroutines.flow.flowName
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.dagger.qualifiers.Application
@@ -32,8 +33,10 @@ import com.android.systemui.keyguard.shared.quickaffordance.ActivationState
 import com.android.systemui.keyguard.shared.quickaffordance.KeyguardQuickAffordancePosition
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.scene.shared.model.Overlays
+import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.shared.keyguard.shared.model.KeyguardQuickAffordanceSlots
+import com.android.systemui.util.kotlin.BooleanFlowOperators.anyOf
 import com.android.systemui.utils.coroutines.flow.flatMapLatestConflated
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -94,15 +97,25 @@ constructor(
     /** The only time the expansion is important is while lockscreen is actively displayed */
     private val shadeExpansionAlpha =
         if (SceneContainerFlag.isEnabled) {
-            // The bouncer overlay transitions fade the whole lock screen, so don't also hide the
+            // Shade and bouncer transitions fade the whole lock screen, so don't also hide the
             // shortcuts until they finish.
-            combine(
+            anyOf(
                     showingLockscreen,
-                    transitionInteractor.isInTransition(Edge.create(from = Overlays.Bouncer)),
-                    transitionInteractor.isInTransition(Edge.create(to = Overlays.Bouncer)),
-                ) { finishedInLockscreen, fromBouncer, toBouncer ->
-                    finishedInLockscreen || fromBouncer || toBouncer
-                }
+                    *listOf<ContentKey>(
+                            Scenes.Shade,
+                            Scenes.QuickSettings,
+                            Overlays.NotificationsShade,
+                            Overlays.QuickSettingsShade,
+                            Overlays.Bouncer,
+                        )
+                        .flatMap {
+                            listOf(
+                                transitionInteractor.isInTransition(Edge.create(from = it)),
+                                transitionInteractor.isInTransition(Edge.create(to = it)),
+                            )
+                        }
+                        .toTypedArray(),
+                )
                 .distinctUntilChanged()
                 .flatMapLatestConflated { showingLockscreen ->
                     if (showingLockscreen) {

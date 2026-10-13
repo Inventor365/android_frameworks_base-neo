@@ -20,8 +20,6 @@ import com.android.systemui.keyguard.shared.transition.KeyguardTransitionAnimati
 import com.android.systemui.keyguard.shared.transition.keyguardTransitionAnimationCallbackDelegator
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.Kosmos.Fixture
-import com.android.systemui.shade.domain.interactor.shadeModeInteractor
-import com.android.systemui.statusbar.notification.stack.domain.interactor.notificationStackAppearanceInteractor
 
 val Kosmos.lockscreenContentViewModelFactory by Fixture {
     object : LockscreenContentViewModel.Factory {
@@ -30,11 +28,9 @@ val Kosmos.lockscreenContentViewModelFactory by Fixture {
             viewState: ViewStateAccessor,
         ): LockscreenContentViewModel {
             return LockscreenContentViewModel(
-                shadeModeInteractor = shadeModeInteractor,
                 keyguardTransitionAnimationCallbackDelegator =
                     keyguardTransitionAnimationCallbackDelegator,
                 keyguardTransitionAnimationCallback = keyguardTransitionAnimationCallback,
-                notificationStackAppearanceInteractor = notificationStackAppearanceInteractor,
                 lockscreenAlphaViewModelFactory = lockscreenAlphaViewModelFactory,
                 viewStateAccessor = viewState,
             )

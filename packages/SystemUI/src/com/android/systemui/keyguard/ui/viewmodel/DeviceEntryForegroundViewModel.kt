@@ -35,10 +35,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.take
 
 /** Models the UI state for the device entry icon foreground view (displayed icon). */
 @OptIn(FlowPreview::class)
@@ -98,7 +101,13 @@ constructor(
     private val padding: Flow<Int> =
         deviceEntryUdfpsInteractor.isUdfpsSupported.flatMapLatest { udfpsSupported ->
             if (udfpsSupported) {
-                udfpsOverlayInteractor.iconPadding.debounce(udfpsPaddingDebounceDuration.toLong())
+                // Don't hold back the first value, or a newly bound icon stays empty meanwhile.
+                udfpsOverlayInteractor.iconPadding.let { padding ->
+                    merge(
+                        padding.take(1),
+                        padding.drop(1).debounce(udfpsPaddingDebounceDuration.toLong()),
+                    )
+                }
             } else {
                 configurationInteractor.scaleForResolution.map { scale ->
                     (context.resources.getDimensionPixelSize(R.dimen.lock_icon_padding) * scale)

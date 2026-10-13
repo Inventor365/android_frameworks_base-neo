@@ -257,7 +257,7 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                 cuj = Cuj.CUJ_NOTIFICATION_SHADE_QS_EXPAND_COLLAPSE,
                 cujTag = TAG_COLLAPSE,
             ) {
-                reversed { lockscreenToQuickSettingsSceneTransition() }
+                reversed { lockscreenToQuickSettingsSceneTransition(isReversed = true) }
             }
             from(
                 Scenes.QuickSettings,
@@ -323,6 +323,7 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                     lockscreenToSingleShadeTransition(
                         transitionDistancePx = null,
                         singleShadeMarginHorizontalPx = singleShadeMarginHorizontalPx,
+                        isReversed = true,
                     )
                 }
                 sharedElement(Notifications.Elements.StackPlaceholder, enabled = false)
@@ -340,7 +341,8 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
             ) {
                 reversed {
                     lockscreenToSplitShadeTransition(
-                        transitionDistancePx = lockscreenToShadeTransitionDistancePx
+                        transitionDistancePx = lockscreenToShadeTransitionDistancePx,
+                        isReversed = true,
                     )
                 }
                 sharedElement(Notifications.Elements.StackPlaceholder, enabled = false)
@@ -660,6 +662,7 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                         useSharedElementTransitions = false,
                         shadeExpansionMotion = shadeExpansionMotion,
                         revealHaptics = revealHaptics,
+                        isReversed = true,
                     )
                 }
             }
@@ -676,6 +679,7 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                         useSharedElementTransitions = false,
                         shadeExpansionMotion = shadeExpansionMotion,
                         revealHaptics = revealHaptics,
+                        isReversed = true,
                     )
                 }
             }
@@ -689,6 +693,7 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                     lockscreenToQuickSettingsOverlayTransition(
                         shadeExpansionMotion = shadeExpansionMotion,
                         revealHaptics = revealHaptics,
+                        isReversed = true,
                     )
                 }
             }
@@ -704,6 +709,7 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                         durationScale = 0.9,
                         shadeExpansionMotion = shadeExpansionMotion,
                         revealHaptics = revealHaptics,
+                        isReversed = true,
                     )
                 }
             }

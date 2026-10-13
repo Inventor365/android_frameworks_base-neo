@@ -17,7 +17,10 @@ package com.android.systemui.scene.ui.composable.transitions
 
 import com.android.compose.animation.scene.TransitionBuilder
 
-fun TransitionBuilder.lockscreenToQuickSettingsSceneTransition(durationScale: Double = 1.0) {
-    lockscreenFadeOutTransition(durationScale = durationScale)
+fun TransitionBuilder.lockscreenToQuickSettingsSceneTransition(
+    durationScale: Double = 1.0,
+    isReversed: Boolean = false,
+) {
+    lockscreenFadeOutTransition(durationScale = durationScale, isReversed = isReversed)
     toQuickSettingsSceneTransition(durationScale = durationScale)
 }

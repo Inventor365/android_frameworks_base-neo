@@ -24,8 +24,9 @@ fun TransitionBuilder.lockscreenToQuickSettingsOverlayTransition(
     durationScale: Double = 1.0,
     shadeExpansionMotion: VerticalExpandContainerSpec,
     revealHaptics: ContainerRevealHaptics,
+    isReversed: Boolean = false,
 ) {
-    lockscreenFadeOutTransition(durationScale = durationScale)
+    lockscreenFadeOutTransition(durationScale = durationScale, isReversed = isReversed)
     toQuickSettingsShadeTransition(
         durationScale = durationScale,
         shadeExpansionMotion = shadeExpansionMotion,

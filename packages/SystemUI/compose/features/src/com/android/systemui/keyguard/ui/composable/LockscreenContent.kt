@@ -18,8 +18,6 @@ package com.android.systemui.keyguard.ui.composable
 
 import android.view.View
 import androidx.annotation.VisibleForTesting
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.focusable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -27,17 +25,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import com.android.compose.animation.scene.ContentScope
-import com.android.compose.animation.scene.content.state.TransitionState
 import com.android.internal.jank.Cuj
 import com.android.internal.jank.Cuj.CujType
 import com.android.internal.jank.InteractionJankMonitor
@@ -54,9 +48,6 @@ import com.android.systemui.keyguard.ui.viewmodel.ViewStateAccessor
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementContext
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys
-import com.android.systemui.scene.shared.model.Scenes
-import kotlin.math.min
-import kotlinx.coroutines.flow.first
 import platform.test.motion.compose.values.MotionTestValueKey
 import platform.test.motion.compose.values.motionTestValues
 
@@ -103,49 +94,6 @@ class LockscreenContent(
                 lockscreenBehindScrimViewModelFactory.create()
             }
 
-        // Alpha for the animation when transitioning from Shade scene to Lockscreen Scene and
-        // ending user input, at which point the content fades in, visually completing the
-        // transition.
-        val contentAlphaAnimatable = remember { Animatable(1f) }
-        LaunchedEffect(contentAlphaAnimatable) {
-            snapshotFlow { contentAlphaAnimatable.value }
-                .collect {
-                    // Pipe the content alpha animation progress to the view model, so NSSL can
-                    // fade-in the stack in tandem.
-                    viewModel.setContentAlphaForLockscreenFadeIn(it)
-                }
-        }
-
-        // The `contentAlphaAnimatable` must animate from 0 -> 1 at the end of each transition / end
-        // of user's gestures, iff the transition matched `shouldContentFadeIn`.  Keep track of the
-        // last transition that required this fade-in, in order to trigger an animation every time.
-        var revealContentAfterTransition by remember {
-            mutableStateOf<TransitionState.Transition?>(null, policy = referentialEqualityPolicy())
-        }
-        layoutState.currentTransition
-            ?.takeIf { currentTransition -> viewModel.shouldContentFadeIn(currentTransition) }
-            ?.also { revealContentAfterTransition = it }
-
-        LaunchedEffect(contentAlphaAnimatable, revealContentAfterTransition) {
-            // When initially composed, either outside a transition or without the
-            // shouldContentFadeIn, there's nothing to animate.
-            val transitionToAwaitEnd = revealContentAfterTransition ?: return@LaunchedEffect
-
-            // In all other cases, start transparent (the content won't be visible at the beginning
-            // of such a transition)
-            contentAlphaAnimatable.snapTo(0f)
-
-            // Wait until the transition ended, was interrupted, or the user ended the gesture.
-            snapshotFlow {
-                    (transitionToAwaitEnd != layoutState.currentTransition) ||
-                        !transitionToAwaitEnd.isUserInputOngoing
-                }
-                .first { it }
-
-            // now fade the content in.
-            contentAlphaAnimatable.animateTo(1f, tween())
-        }
-
         // Ensure clock events are connected. This is a no-op if they are already registered.
         clockInteractor.clockEventController.registerListeners()
 
@@ -160,13 +108,11 @@ class LockscreenContent(
         )
         CompositionLocalProvider(
             LocalLockscreenBlurAlpha provides {
-                if (
-                    layoutState.isTransitioningFromOrTo(Scenes.Lockscreen) ||
-                        layoutState.currentOverlays.isNotEmpty()
-                ) {
+                // Blur regions bypass Compose layers, so follow the scene's fade of the root.
+                if (!layoutState.isTransitioning() && layoutState.currentOverlays.isNotEmpty()) {
                     0f
                 } else {
-                    min(viewModel.alpha, contentAlphaAnimatable.value)
+                    viewModel.alpha * (LockscreenElementKeys.Root.currentAlpha() ?: 1f)
                 }
             }
         ) {
@@ -175,9 +121,7 @@ class LockscreenContent(
                     LockscreenElementKeys.Root,
                     modifier
                         .sysuiResTag("keyguard_root_view")
-                        .graphicsLayer {
-                            alpha = min(viewModel.alpha, contentAlphaAnimatable.value)
-                        }
+                        .graphicsLayer { alpha = viewModel.alpha }
                         .motionTestValues {
                             LockscreenElementKeys.Root.currentAlpha()?.let { alpha ->
                                 alpha exportAs LockscreenContentMotionTestKeys.Alpha

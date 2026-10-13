@@ -3136,7 +3136,10 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
             if (mIsSummaryWithChildren) {
                 mChildrenContainer.updateGroupOverflow();
             }
-            notifyHeightChanged(/* needsAnimation= */ !onKeyguard, "ENR.setOnKeyguard="+onKeyguard);
+            // With scenes the stack can return to the lockscreen in view (e.g. collapsing the
+            // shade), so collapse as smoothly as it expanded.
+            notifyHeightChanged(/* needsAnimation= */ SceneContainerFlag.isEnabled() || !onKeyguard,
+                    "ENR.setOnKeyguard="+onKeyguard);
         }
         if (isAboveShelf() != wasAboveShelf) {
             mAboveShelfChangedListener.onAboveShelfStateChanged(!wasAboveShelf);

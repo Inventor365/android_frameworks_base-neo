@@ -53,6 +53,7 @@ import com.android.systemui.statusbar.notification.domain.interactor.HeadsUpNoti
 import com.android.systemui.statusbar.notification.stack.domain.interactor.LockscreenDisplayConfig
 import com.android.systemui.statusbar.notification.stack.domain.interactor.LockscreenNotificationsInteractor
 import com.android.systemui.statusbar.notification.stack.domain.interactor.NotificationStackAppearanceInteractor
+import com.android.systemui.statusbar.notification.stack.domain.interactor.isShadeCollapsingToLockscreen
 import com.android.systemui.statusbar.notification.stack.shared.model.AccessibilityScrollEvent
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimClipping
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimShape
@@ -127,8 +128,8 @@ constructor(
                 // Transitions following variable Shade expansion
                 isTransitioningBetween(Scenes.Gone, Scenes.Shade) ||
                     isTransitioningBetween(Scenes.Occluded, Scenes.Shade) ||
-                    isTransitioning(from = Scenes.Shade, to = Scenes.Lockscreen) ->
-                    shadeInteractor.shadeExpansion
+                    (isTransitioning(from = Scenes.Shade, to = Scenes.Lockscreen) &&
+                        !isShadeCollapsingToLockscreen()) -> shadeInteractor.shadeExpansion
 
                 // Transitions following delayed variable QS expansion
                 isTransitioningBetween(Scenes.Gone, Scenes.QuickSettings) ->
@@ -169,7 +170,7 @@ constructor(
                             transitionState.isTransitioning(
                                 from = Scenes.Lockscreen,
                                 to = Scenes.Shade,
-                            )
+                            ) || transitionState.isShadeCollapsingToLockscreen()
                         ) {
                             shadeExp
                         } else {
@@ -415,7 +416,8 @@ constructor(
         sceneInteractor.transitionStateFlow
             .mapNotNull { state ->
                 state.isIdle(Scenes.Lockscreen) ||
-                    state.isTransitioning(from = Scenes.Lockscreen, to = Scenes.Shade)
+                    state.isTransitioning(from = Scenes.Lockscreen, to = Scenes.Shade) ||
+                    state.isShadeCollapsingToLockscreen()
             }
             .distinctUntilChanged()
 

@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.notification.stack.domain.interactor
 
+import com.android.compose.animation.scene.ObservableTransitionState
 import com.android.compose.animation.scene.ObservableTransitionState.Idle
 import com.android.compose.animation.scene.ObservableTransitionState.Transition
 import com.android.compose.animation.scene.SceneKey
@@ -23,6 +24,8 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
+import com.android.systemui.scene.shared.model.TransitionKeys.ToAlwaysOnDisplay
+import com.android.systemui.scene.shared.model.TransitionKeys.ToSplitShade
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +33,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 /**
  * Data class representing a configuration for displaying Notifications on the Lockscreen.
@@ -39,6 +43,13 @@ import kotlinx.coroutines.flow.flowOf
  *   value of -1 indicates no limit.
  */
 data class LockscreenDisplayConfig(val isOnLockscreen: Boolean, val maxNotifications: Int)
+
+/** Whether the single shade is collapsing onto the lockscreen, carrying the stack back with it. */
+fun ObservableTransitionState.isShadeCollapsingToLockscreen(): Boolean =
+    this is Transition.ChangeScene &&
+        isTransitioning(from = Scenes.Shade, to = Scenes.Lockscreen) &&
+        key != ToAlwaysOnDisplay &&
+        key != ToSplitShade
 
 @SysUISingleton
 class LockscreenNotificationsInteractor
@@ -71,6 +82,9 @@ constructor(
                             progress ->
                             userInput || progress < EXPANSION_FOR_DELAYED_STACK_FADE_IN
                         }
+                    } else if (transitionState.isShadeCollapsingToLockscreen()) {
+                        // Switch layouts before the stack starts travelling, not halfway through.
+                        transitionState.isUserInputOngoing.map { !it }
                     } else {
                         // true throughout Keyguard transitions where the shade is NOT involved
                         flowOf((fromKeyguard || toKeyguard) && !isShadeInvolved)

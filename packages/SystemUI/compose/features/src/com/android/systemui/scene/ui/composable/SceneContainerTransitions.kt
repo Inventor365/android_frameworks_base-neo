@@ -326,7 +326,6 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                         isReversed = true,
                     )
                 }
-                sharedElement(Notifications.Elements.StackPlaceholder, enabled = false)
                 sharedElement(
                     Notifications.Elements.HeadsUpNotificationPlaceholder,
                     enabled = false,

@@ -121,6 +121,7 @@ private fun <T, V : AnimationVector> TransitionBuilder.seekSharedElementToValueU
             private var lastToValue = undefinedValue
             private var lastValue = undefinedValue
             private var triggerAnimatable: Animatable<T, V>? = null
+            private var hasSeeked = false
 
             override fun PropertyTransformationScope.transform(
                 element: ElementKey,
@@ -131,6 +132,11 @@ private fun <T, V : AnimationVector> TransitionBuilder.seekSharedElementToValueU
             ): T {
                 return if (transition.isUserInputOngoing) {
                         seek(transition, fromValue, toValue)
+                    } else if (!hasSeeked) {
+                        // Never driven by user input in this transition (e.g. it replaced an
+                        // interrupted one): interpolate like a regular shared element instead of
+                        // snapping to the target.
+                        lerp(fromValue, toValue, transition.progress)
                     } else {
                         trigger(
                             transition = transition,
@@ -148,6 +154,7 @@ private fun <T, V : AnimationVector> TransitionBuilder.seekSharedElementToValueU
                 fromValue: T,
                 toValue: T,
             ): T {
+                hasSeeked = true
                 if (lastFromValue != fromValue || lastToValue != toValue) {
                     lastFromValue = fromValue
                     lastToValue = toValue

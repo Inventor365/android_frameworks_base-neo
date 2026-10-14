@@ -20,11 +20,9 @@ import android.content.Context
 import android.view.MotionEvent
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.interaction.DragInteraction
@@ -32,12 +30,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Icon as M3Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
@@ -50,31 +50,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.app.tracing.coroutines.launchTraced as launch
@@ -85,11 +84,7 @@ import com.android.compose.modifiers.thenIf
 import com.android.compose.ui.graphics.drawInOverlay
 import com.android.systemui.biometrics.Utils.toBitmap
 import com.android.systemui.brightness.domain.model.GammaBrightness
-import com.android.systemui.brightness.ui.compose.AnimationSpecs.IconAppearSpec
-import com.android.systemui.brightness.ui.compose.AnimationSpecs.IconDisappearSpec
-import com.android.systemui.brightness.ui.compose.InternalDimensions.IconPadding
 import com.android.systemui.brightness.ui.compose.InternalDimensions.SliderTrackRoundedCorner
-import com.android.systemui.brightness.ui.compose.InternalDimensions.ThumbTrackGapSize
 import com.android.systemui.brightness.ui.viewmodel.BrightnessSliderViewModel
 import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.common.shared.colors.SystemUISliderColors
@@ -102,8 +97,6 @@ import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.ui.compose.borderOnFocus
 import com.android.systemui.res.R
 import com.android.systemui.util.policy.PolicyRestriction
-import platform.test.motion.compose.values.MotionTestValueKey
-import platform.test.motion.compose.values.motionTestValues
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -171,26 +164,8 @@ fun BrightnessSlider(
                 }
             }
         }
-    val activeIconColor = colors.activeTickColor
+    val iconColor = colors.activeTickColor
     val iconSize = dimensions.iconSize
-    val inactiveIconColor = colors.inactiveTickColor
-    // Offset from the right
-    val trackIcon: DrawScope.(Offset, Color, Float) -> Unit = remember {
-        { offset, color, alpha ->
-            val rtl = layoutDirection == LayoutDirection.Rtl
-            scale(if (rtl) -1f else 1f, 1f) {
-                translate(offset.x - IconPadding.toPx() - iconSize.toSize().width, offset.y) {
-                    with(painter) {
-                        draw(
-                            iconSize.toSize(),
-                            colorFilter = ColorFilter.tint(color),
-                            alpha = alpha,
-                        )
-                    }
-                }
-            }
-        }
-    }
 
     Slider(
         value = animatedValue,
@@ -232,91 +207,62 @@ fun BrightnessSlider(
                 },
         interactionSource = interactionSource,
         thumb = {
-            SliderDefaults.Thumb(
-                interactionSource = interactionSource,
-                enabled = enabled,
-                thumbSize = DpSize(dimensions.thumbWidth, dimensions.thumbHeight),
-                colors = colors,
-            )
+            Box(modifier = Modifier.size(iconSize * 2f)) // Match trackHeight
         },
         track = { sliderState ->
-            var showIconActive by remember { mutableStateOf(true) }
-            val iconActiveAlphaAnimatable = remember {
-                Animatable(
-                    initialValue = 1f,
-                    typeConverter = Float.VectorConverter,
-                    label = "iconActiveAlpha",
-                )
-            }
-
-            val iconInactiveAlphaAnimatable = remember {
-                Animatable(
-                    initialValue = 0f,
-                    typeConverter = Float.VectorConverter,
-                    label = "iconInactiveAlpha",
-                )
-            }
-
-            LaunchedEffect(iconActiveAlphaAnimatable, iconInactiveAlphaAnimatable, showIconActive) {
-                if (showIconActive) {
-                    launch { iconActiveAlphaAnimatable.appear() }
-                    launch { iconInactiveAlphaAnimatable.disappear() }
-                } else {
-                    launch { iconActiveAlphaAnimatable.disappear() }
-                    launch { iconInactiveAlphaAnimatable.appear() }
-                }
-            }
-
-            SliderDefaults.Track(
-                sliderState = sliderState,
-                modifier =
-                    Modifier.motionTestValues {
-                            iconActiveAlphaAnimatable.value exportAs
-                                BrightnessSliderMotionTestKeys.ActiveIconAlpha
-                            iconInactiveAlphaAnimatable.value exportAs
-                                BrightnessSliderMotionTestKeys.InactiveIconAlpha
+            val activeTrackColor = colors.activeTrackColor
+            val inactiveTrackColor = colors.inactiveTrackColor
+            val density = LocalDensity.current
+        
+            Layout(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(dimensions.trackHeight)
+                    .clip(RoundedCornerShape(SliderTrackRoundedCorner)),
+                content = {
+                    Box(Modifier
+                            .clip(RoundedCornerShape(SliderTrackRoundedCorner))
+                            .background(inactiveTrackColor)) // Inactive track
+                    Box(Modifier
+                            .clip(RoundedCornerShape(SliderTrackRoundedCorner))
+                            .background(activeTrackColor),
+                        contentAlignment = Alignment.CenterEnd
+                    ) { // Active track with icon
+                        Box(
+                            modifier = Modifier.size(iconSize * 2f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            M3Icon(
+                                painter = painter,
+                                contentDescription = null,
+                                modifier = Modifier.size(iconSize),
+                                tint = iconColor,
+                            )
                         }
-                        .height(dimensions.trackHeight)
-                        .drawWithContent {
-                            drawContent()
+                    }
+                },
+                measurePolicy = { measurables, constraints ->
+                    val thumbWidthPx = with(density) { (iconSize * 2f).width.toPx().toInt() }
+                    val trackHeightPx = with(density) { dimensions.trackHeight.toPx().toInt() }
+                    val width = constraints.maxWidth + thumbWidthPx
 
-                            val yOffset = size.height / 2 - iconSize.toSize().height / 2
-                            val activeTrackStart = 0f
-                            val activeTrackEnd =
-                                size.width * sliderState.coercedValueAsFraction -
-                                    ThumbTrackGapSize.toPx()
-                            val inactiveTrackStart = activeTrackEnd + ThumbTrackGapSize.toPx() * 2
-                            val inactiveTrackEnd = size.width
+                    val trackWidth = (sliderState.coercedValueAsFraction * constraints.maxWidth).toInt()
+					val activeTrackWidth = trackWidth + thumbWidthPx -
+							if (trackWidth == 0) trackWidth else 0
 
-                            val activeTrackWidth = activeTrackEnd - activeTrackStart
-                            val inactiveTrackWidth = inactiveTrackEnd - inactiveTrackStart
+                    val inactiveTrackPlaceable = measurables[0].measure(
+                        Constraints.fixed(width, trackHeightPx)
+                    )
 
-                            if (
-                                iconSize.toSize().width <
-                                    inactiveTrackWidth - IconPadding.toPx() * 2
-                            ) {
-                                showIconActive = false
-                                trackIcon(
-                                    Offset(inactiveTrackEnd, yOffset),
-                                    inactiveIconColor,
-                                    iconInactiveAlphaAnimatable.value,
-                                )
-                            } else if (
-                                iconSize.toSize().width < activeTrackWidth - IconPadding.toPx() * 2
-                            ) {
-                                showIconActive = true
-                                trackIcon(
-                                    Offset(activeTrackEnd, yOffset),
-                                    activeIconColor,
-                                    iconActiveAlphaAnimatable.value,
-                                )
-                            }
-                        },
-                trackCornerSize = SliderTrackRoundedCorner,
-                trackInsideCornerSize = 2.dp,
-                drawStopIndicator = null,
-                thumbTrackGapSize = ThumbTrackGapSize,
-                colors = colors,
+                    val activeTrackPlaceable = measurables[1].measure(
+                        Constraints.fixed(activeTrackWidth, trackHeightPx)
+                    )
+
+                    layout(width, trackHeightPx) {
+                        inactiveTrackPlaceable.place(0, 0)
+                        activeTrackPlaceable.place(0, 0)
+                    }
+                }
             )
         },
     )
@@ -471,37 +417,18 @@ data class BrightnessSliderDimensions(
     companion object {
         val Default =
             BrightnessSliderDimensions(
-                iconSize = DpSize(28.dp, 28.dp),
-                thumbHeight = 52.dp,
+                iconSize = DpSize(27.dp, 27.dp),
+                thumbHeight = 54.dp,
                 thumbWidth = 4.dp,
-                trackHeight = 40.dp,
-                verticalPadding = 6.dp,
-                backgroundRoundedCorner = 24.dp,
-                backgroundFrameWidth = 10.dp,
-                backgroundFrameHeight = 6.dp,
+                trackHeight = 54.dp,
+                verticalPadding = 4.dp,
+                backgroundRoundedCorner = 74.8.dp,
+                backgroundFrameWidth = 8.dp,
+                backgroundFrameHeight = 8.dp,
             )
     }
 }
 
 private object InternalDimensions {
-    val SliderTrackRoundedCorner = 12.dp
-    val IconPadding = 6.dp
-    val ThumbTrackGapSize = 6.dp
-}
-
-private object AnimationSpecs {
-    val IconAppearSpec = tween<Float>(durationMillis = 100, delayMillis = 33)
-    val IconDisappearSpec = tween<Float>(durationMillis = 50)
-}
-
-private suspend fun Animatable<Float, AnimationVector1D>.appear() =
-    animateTo(targetValue = 1f, animationSpec = IconAppearSpec)
-
-private suspend fun Animatable<Float, AnimationVector1D>.disappear() =
-    animateTo(targetValue = 0f, animationSpec = IconDisappearSpec)
-
-@VisibleForTesting
-object BrightnessSliderMotionTestKeys {
-    val ActiveIconAlpha = MotionTestValueKey<Float>("activeIconAlpha")
-    val InactiveIconAlpha = MotionTestValueKey<Float>("inactiveIconAlpha")
+    val SliderTrackRoundedCorner = 37.4.dp // Match Inactive QS tile
 }

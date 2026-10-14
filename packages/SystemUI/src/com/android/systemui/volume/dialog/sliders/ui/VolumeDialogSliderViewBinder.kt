@@ -20,6 +20,7 @@ import android.view.View
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -50,7 +51,6 @@ import com.android.systemui.volume.haptics.ui.VolumeHapticsConfigsProvider
 import com.android.systemui.volume.ui.compose.slider.AccessibilityParams
 import com.android.systemui.volume.ui.compose.slider.Haptics
 import com.android.systemui.volume.ui.compose.slider.Slider
-import com.android.systemui.volume.ui.compose.slider.SliderIcon
 import javax.inject.Inject
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -147,7 +147,7 @@ private fun VolumeDialogSlider(
         },
         onValueChangeFinished = { viewModel.onSliderChangeFinished(it) },
         isEnabled = !sliderStateModel.isDisabled,
-        isReverseDirection = true,
+        isReverseDirection = isVolumeDialogVertical,
         isVertical = isVolumeDialogVertical,
         colors = colors,
         interactionSource = interactionSource,
@@ -166,45 +166,24 @@ private fun VolumeDialogSlider(
         stepDistance = 1f,
         track = { sliderState ->
             SliderTrack(
-                sliderState,
+                sliderState = sliderState,
                 colors = colors,
                 isEnabled = !sliderStateModel.isDisabled,
                 isVertical = isVolumeDialogVertical,
-                activeTrackEndIcon = { iconsState ->
-                    SliderIcon(
-                        icon = {
-                            Icon(
-                                icon = sliderStateModel.icon,
-                                tint = null,
-                                modifier = Modifier.size(dimensions.iconSize),
-                            )
-                        },
-                        isVisible = !iconsState.isInactiveTrackEndIconVisible,
-                    )
-                },
-                inactiveTrackEndIcon = { iconsState ->
-                    SliderIcon(
-                        icon = {
-                            Icon(
-                                icon = sliderStateModel.icon,
-                                tint = null,
-                                modifier = Modifier.size(dimensions.iconSize),
-                            )
-                        },
-                        isVisible = iconsState.isInactiveTrackEndIconVisible,
-                    )
-                },
+                isReverseDirection = isVolumeDialogVertical,
                 trackSize = dimensions.trackSize,
+                trackCornerSize = dimensions.trackCornerSize,
+                icon = {
+                    Icon(
+                        icon = sliderStateModel.icon,
+                        tint = null,
+                        modifier = Modifier.size(dimensions.iconSize),
+                    )
+                },
             )
         },
-        thumb = { sliderState, interactions ->
-            SliderDefaults.Thumb(
-                sliderState = sliderState,
-                interactionSource = interactions,
-                enabled = !sliderStateModel.isDisabled,
-                colors = colors,
-                thumbSize = DpSize(dimensions.thumbWidth, dimensions.thumbHeight),
-            )
+        thumb = { _, _ ->
+            Box(modifier = Modifier.size(dimensions.trackSize))
         },
         accessibilityParams = AccessibilityParams(contentDescription = sliderStateModel.label),
         modifier =
@@ -223,25 +202,26 @@ private fun VolumeDialogSlider(
 
 data class VolumeSliderDimensions(
     val iconSize: Dp,
-    val thumbHeight: Dp,
-    val thumbWidth: Dp,
-    val trackSize: Dp,
+    val thumbHeight: Dp = iconSize * 2f,
+    val thumbWidth: Dp = iconSize * 2f,
+    val trackSize: Dp = iconSize * 2f,
+    val trackCornerSize: Dp = trackSize * (34f / 49f),
 ) {
     companion object {
         val Vertical =
             VolumeSliderDimensions(
                 iconSize = 20.dp,
-                thumbWidth = 52.dp,
-                thumbHeight = 4.dp,
+                thumbWidth = 40.dp,
+                thumbHeight = 40.dp,
                 trackSize = 40.dp,
             )
 
         val Horizontal =
             VolumeSliderDimensions(
                 iconSize = 24.dp,
-                thumbHeight = 40.dp,
-                thumbWidth = 3.dp,
-                trackSize = 32.dp,
+                thumbHeight = 48.dp,
+                thumbWidth = 48.dp,
+                trackSize = 48.dp,
             )
     }
 }

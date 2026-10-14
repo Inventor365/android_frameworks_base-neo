@@ -16,11 +16,15 @@
 
 package com.android.systemui.volume.dialog.sliders.ui.compose
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LocalContentColor
@@ -29,23 +33,16 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.Measurable
-import androidx.compose.ui.layout.MeasurePolicy
-import androidx.compose.ui.layout.MeasureResult
-import androidx.compose.ui.layout.MeasureScope
-import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastFirst
-import kotlin.math.min
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -54,356 +51,133 @@ fun SliderTrack(
     isEnabled: Boolean,
     modifier: Modifier = Modifier,
     colors: SliderColors = SliderDefaults.colors(),
-    thumbTrackGapSize: Dp = 6.dp,
-    trackCornerSize: Dp = 12.dp,
+    thumbTrackGapSize: Dp = 0.dp,
+    trackCornerSize: Dp = 33.3.dp,
     trackInsideCornerSize: Dp = 2.dp,
-    trackSize: Dp = 40.dp,
+    trackSize: Dp = 48.dp,
     isVertical: Boolean = false,
+    isReverseDirection: Boolean = isVertical,
+    icon: (@Composable BoxScope.() -> Unit)? = null,
     activeTrackStartIcon: (@Composable BoxScope.(iconsState: SliderIconsState) -> Unit)? = null,
     activeTrackEndIcon: (@Composable BoxScope.(iconsState: SliderIconsState) -> Unit)? = null,
     inactiveTrackStartIcon: (@Composable BoxScope.(iconsState: SliderIconsState) -> Unit)? = null,
     inactiveTrackEndIcon: (@Composable BoxScope.(iconsState: SliderIconsState) -> Unit)? = null,
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val measurePolicy =
-        remember(sliderState, isRtl, isVertical, thumbTrackGapSize) {
-            TrackMeasurePolicy(
-                sliderState = sliderState,
-                shouldMirrorIcons = !isVertical && isRtl || isVertical,
-                isVertical = isVertical,
-                gapSize = thumbTrackGapSize,
+    val density = LocalDensity.current
+
+    val activeTrackColor =
+        if (isEnabled) colors.activeTrackColor else colors.disabledActiveTrackColor
+    val inactiveTrackColor =
+        if (isEnabled) colors.inactiveTrackColor else colors.disabledInactiveTrackColor
+    val iconColor =
+        if (isEnabled) colors.activeTickColor else colors.disabledActiveTickColor
+
+    val resolvedIcon: (@Composable BoxScope.() -> Unit)? =
+        icon ?: activeTrackEndIcon?.let { { it(DefaultSliderIconsState) } }
+
+    val trackModifier =
+        modifier
+            .then(
+                if (isVertical) {
+                    Modifier.fillMaxHeight().width(trackSize)
+                } else {
+                    Modifier.fillMaxWidth().height(trackSize)
+                }
             )
+            .clip(RoundedCornerShape(trackCornerSize))
+
+    val iconAlignment =
+        when {
+            isVertical && isReverseDirection -> Alignment.TopCenter
+            isVertical && !isReverseDirection -> Alignment.BottomCenter
+            !isVertical && isRtl -> Alignment.CenterStart
+            else -> Alignment.CenterEnd
         }
+
     Layout(
-        measurePolicy = measurePolicy,
+        modifier = trackModifier,
         content = {
-            SliderDefaults.Track(
-                sliderState = sliderState,
-                colors = colors,
-                enabled = isEnabled,
-                trackCornerSize = trackCornerSize,
-                trackInsideCornerSize = trackInsideCornerSize,
-                drawStopIndicator = null,
-                thumbTrackGapSize = thumbTrackGapSize,
-                drawTick = { _, _ -> },
-                modifier =
-                    Modifier.then(
-                            if (isVertical) {
-                                Modifier.width(trackSize)
-                            } else {
-                                Modifier.height(trackSize)
-                            }
-                        )
-                        .layoutId(Contents.Track),
+            // Measurable 0: Inactive track
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(trackCornerSize))
+                    .background(inactiveTrackColor)
             )
 
-            TrackIcon(
-                icon = activeTrackStartIcon,
-                contents = Contents.Active.TrackStartIcon,
-                isEnabled = isEnabled,
-                colors = colors,
-                trackMeasurePolicy = measurePolicy,
-            )
-            TrackIcon(
-                icon = activeTrackEndIcon,
-                contents = Contents.Active.TrackEndIcon,
-                isEnabled = isEnabled,
-                colors = colors,
-                trackMeasurePolicy = measurePolicy,
-            )
-            TrackIcon(
-                icon = inactiveTrackStartIcon,
-                contents = Contents.Inactive.TrackStartIcon,
-                isEnabled = isEnabled,
-                colors = colors,
-                trackMeasurePolicy = measurePolicy,
-            )
-            TrackIcon(
-                icon = inactiveTrackEndIcon,
-                contents = Contents.Inactive.TrackEndIcon,
-                isEnabled = isEnabled,
-                colors = colors,
-                trackMeasurePolicy = measurePolicy,
-            )
+            // Measurable 1: Active track with icon at leading edge
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(trackCornerSize))
+                    .background(activeTrackColor),
+                contentAlignment = iconAlignment,
+            ) {
+                if (resolvedIcon != null) {
+                    Box(
+                        modifier = Modifier.size(trackSize),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CompositionLocalProvider(LocalContentColor provides iconColor) {
+                            resolvedIcon()
+                        }
+                    }
+                }
+            }
         },
-        modifier = modifier,
+        measurePolicy = { measurables, constraints ->
+            val trackSizePx = with(density) { trackSize.roundToPx() }
+            val thumbSizePx = trackSizePx
+
+            if (isVertical) {
+                val height = constraints.maxHeight + thumbSizePx
+                val trackHeight =
+                    (sliderState.coercedValueAsFraction * constraints.maxHeight).toInt()
+                val activeTrackHeight =
+                    trackHeight + thumbSizePx - if (trackHeight == 0) trackHeight else 0
+
+                val inactiveTrackPlaceable =
+                    measurables[0].measure(Constraints.fixed(trackSizePx, height))
+                val activeTrackPlaceable =
+                    measurables[1].measure(Constraints.fixed(trackSizePx, activeTrackHeight))
+
+                layout(trackSizePx, height) {
+                    inactiveTrackPlaceable.place(0, 0)
+                    val activeY = if (isReverseDirection) height - activeTrackHeight else 0
+                    activeTrackPlaceable.place(0, activeY)
+                }
+            } else {
+                val width = constraints.maxWidth + thumbSizePx
+                val trackWidth =
+                    (sliderState.coercedValueAsFraction * constraints.maxWidth).toInt()
+                val activeTrackWidth =
+                    trackWidth + thumbSizePx - if (trackWidth == 0) trackWidth else 0
+
+                val inactiveTrackPlaceable =
+                    measurables[0].measure(Constraints.fixed(width, trackSizePx))
+                val activeTrackPlaceable =
+                    measurables[1].measure(Constraints.fixed(activeTrackWidth, trackSizePx))
+
+                layout(width, trackSizePx) {
+                    inactiveTrackPlaceable.place(0, 0)
+                    val activeX = if (isRtl) width - activeTrackWidth else 0
+                    activeTrackPlaceable.place(activeX, 0)
+                }
+            }
+        },
     )
 }
 
-@Composable
-private fun TrackIcon(
-    icon: (@Composable BoxScope.(sliderIconsState: SliderIconsState) -> Unit)?,
-    isEnabled: Boolean,
-    contents: Contents,
-    trackMeasurePolicy: TrackMeasurePolicy,
-    colors: SliderColors,
-    modifier: Modifier = Modifier,
-) {
-    icon ?: return
-    /*
-    ignore icons mirroring for the rtl layouts here because icons positioning is handled by the
-    TrackMeasurePolicy. It ensures that active icons are always above the active track and the
-    same for inactive
-    */
-    val iconColor =
-        when (contents) {
-            is Contents.Inactive ->
-                if (isEnabled) {
-                    colors.inactiveTickColor
-                } else {
-                    colors.disabledInactiveTickColor
-                }
-            is Contents.Active ->
-                if (isEnabled) {
-                    colors.activeTickColor
-                } else {
-                    colors.disabledActiveTickColor
-                }
-            is Contents.Track -> {
-                error("$contents is unsupported by the TrackIcon")
-            }
-        }
-    Box(modifier = modifier.layoutId(contents).fillMaxSize()) {
-        if (trackMeasurePolicy.isVisible(contents) != null) {
-            CompositionLocalProvider(LocalContentColor provides iconColor) {
-                icon(trackMeasurePolicy)
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-private class TrackMeasurePolicy(
-    private val sliderState: SliderState,
-    private val shouldMirrorIcons: Boolean,
-    private val gapSize: Dp,
-    private val isVertical: Boolean,
-) : MeasurePolicy, SliderIconsState {
-
-    private val isVisible: Map<Contents, MutableState<Boolean?>> =
-        mutableMapOf(
-            Contents.Active.TrackStartIcon to mutableStateOf(null),
-            Contents.Active.TrackEndIcon to mutableStateOf(null),
-            Contents.Inactive.TrackStartIcon to mutableStateOf(null),
-            Contents.Inactive.TrackEndIcon to mutableStateOf(null),
-        )
-
-    fun isVisible(contents: Contents): Boolean? = isVisible.getValue(contents.resolve()).value
-
-    override val isActiveTrackStartIconVisible: Boolean
-        get() = isVisible(Contents.Active.TrackStartIcon)!!
-
-    override val isActiveTrackEndIconVisible: Boolean
-        get() = isVisible(Contents.Active.TrackEndIcon)!!
-
-    override val isInactiveTrackStartIconVisible: Boolean
-        get() = isVisible(Contents.Inactive.TrackStartIcon)!!
-
-    override val isInactiveTrackEndIconVisible: Boolean
-        get() = isVisible(Contents.Inactive.TrackEndIcon)!!
-
-    override fun MeasureScope.measure(
-        measurables: List<Measurable>,
-        constraints: Constraints,
-    ): MeasureResult {
-        val track = measurables.fastFirst { it.layoutId == Contents.Track }.measure(constraints)
-
-        val iconSize = min(track.width, track.height)
-        val iconConstraints = constraints.copy(maxWidth = iconSize, maxHeight = iconSize)
-
-        val components = buildMap {
-            put(Contents.Track, track)
-            for (measurable in measurables) {
-                // don't measure track a second time
-                if (measurable.layoutId != Contents.Track) {
-                    put(
-                        (measurable.layoutId as Contents).resolve(),
-                        measurable.measure(iconConstraints),
-                    )
-                }
-            }
-        }
-
-        return layout(track.width, track.height) {
-            val gapSizePx = gapSize.roundToPx()
-            val coercedValueAsFraction =
-                if (shouldMirrorIcons) {
-                    1 - sliderState.coercedValueAsFraction
-                } else {
-                    sliderState.coercedValueAsFraction
-                }
-            for (iconLayoutId in components.keys) {
-                val iconPlaceable = components.getValue(iconLayoutId)
-                if (isVertical) {
-                    iconPlaceable.place(
-                        0,
-                        iconLayoutId.calculatePosition(
-                            placeableDimension = iconPlaceable.height,
-                            containerDimension = track.height,
-                            gapSize = gapSizePx,
-                            coercedValueAsFraction = coercedValueAsFraction,
-                        ),
-                    )
-                } else {
-                    iconPlaceable.place(
-                        iconLayoutId.calculatePosition(
-                            placeableDimension = iconPlaceable.width,
-                            containerDimension = track.width,
-                            gapSize = gapSizePx,
-                            coercedValueAsFraction = coercedValueAsFraction,
-                        ),
-                        0,
-                    )
-                }
-
-                // isVisible is only relevant for the icons
-                if (iconLayoutId != Contents.Track) {
-                    val isIconVisible =
-                        iconLayoutId.isVisible(
-                            placeableDimension =
-                                if (isVertical) iconPlaceable.height else iconPlaceable.width,
-                            containerDimension = if (isVertical) track.height else track.width,
-                            gapSize = gapSizePx,
-                            coercedValueAsFraction = coercedValueAsFraction,
-                        )
-                    isVisible.getValue(iconLayoutId).value = isIconVisible
-                }
-            }
-        }
-    }
-
-    private fun Contents.resolve(): Contents {
-        return if (shouldMirrorIcons) {
-            mirrored
-        } else {
-            this
-        }
-    }
-}
-
-private sealed interface Contents {
-
-    data object Track : Contents {
-
-        override val mirrored: Contents
-            get() = error("unsupported for Track")
-
-        override fun calculatePosition(
-            placeableDimension: Int,
-            containerDimension: Int,
-            gapSize: Int,
-            coercedValueAsFraction: Float,
-        ): Int = 0
-
-        override fun isVisible(
-            placeableDimension: Int,
-            containerDimension: Int,
-            gapSize: Int,
-            coercedValueAsFraction: Float,
-        ): Boolean = true
-    }
-
-    interface Active : Contents {
-
-        override fun isVisible(
-            placeableDimension: Int,
-            containerDimension: Int,
-            gapSize: Int,
-            coercedValueAsFraction: Float,
-        ): Boolean =
-            (containerDimension * coercedValueAsFraction - gapSize).toInt() > placeableDimension
-
-        data object TrackStartIcon : Active {
-
-            override val mirrored: Contents
-                get() = Inactive.TrackEndIcon
-
-            override fun calculatePosition(
-                placeableDimension: Int,
-                containerDimension: Int,
-                gapSize: Int,
-                coercedValueAsFraction: Float,
-            ): Int = 0
-        }
-
-        data object TrackEndIcon : Active {
-
-            override val mirrored: Contents
-                get() = Inactive.TrackStartIcon
-
-            override fun calculatePosition(
-                placeableDimension: Int,
-                containerDimension: Int,
-                gapSize: Int,
-                coercedValueAsFraction: Float,
-            ): Int =
-                (containerDimension * coercedValueAsFraction - placeableDimension - gapSize).toInt()
-        }
-    }
-
-    interface Inactive : Contents {
-
-        override fun isVisible(
-            placeableDimension: Int,
-            containerDimension: Int,
-            gapSize: Int,
-            coercedValueAsFraction: Float,
-        ): Boolean =
-            containerDimension - (containerDimension * coercedValueAsFraction + gapSize) >
-                placeableDimension
-
-        data object TrackStartIcon : Inactive {
-
-            override val mirrored: Contents
-                get() = Active.TrackEndIcon
-
-            override fun calculatePosition(
-                placeableDimension: Int,
-                containerDimension: Int,
-                gapSize: Int,
-                coercedValueAsFraction: Float,
-            ): Int = (containerDimension * coercedValueAsFraction + gapSize).toInt()
-        }
-
-        data object TrackEndIcon : Inactive {
-
-            override val mirrored: Contents
-                get() = Active.TrackStartIcon
-
-            override fun calculatePosition(
-                placeableDimension: Int,
-                containerDimension: Int,
-                gapSize: Int,
-                coercedValueAsFraction: Float,
-            ): Int = containerDimension - placeableDimension
-        }
-    }
-
-    fun calculatePosition(
-        placeableDimension: Int,
-        containerDimension: Int,
-        gapSize: Int,
-        coercedValueAsFraction: Float,
-    ): Int
-
-    fun isVisible(
-        placeableDimension: Int,
-        containerDimension: Int,
-        gapSize: Int,
-        coercedValueAsFraction: Float,
-    ): Boolean
-
-    /**
-     * [Contents] that is visually on the opposite side of the current one on the slider. This is
-     * handy when dealing with the rtl layouts
-     */
-    val mirrored: Contents
-}
-
-/** Provides visibility state for each of the Slider's icons. */
+/** Provides visibility state for each of the Slider's icons for backward compatibility. */
 interface SliderIconsState {
     val isActiveTrackStartIconVisible: Boolean
     val isActiveTrackEndIconVisible: Boolean
     val isInactiveTrackStartIconVisible: Boolean
     val isInactiveTrackEndIconVisible: Boolean
+}
+
+private object DefaultSliderIconsState : SliderIconsState {
+    override val isActiveTrackStartIconVisible: Boolean = false
+    override val isActiveTrackEndIconVisible: Boolean = true
+    override val isInactiveTrackStartIconVisible: Boolean = false
+    override val isInactiveTrackEndIconVisible: Boolean = false
 }

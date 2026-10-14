@@ -21,6 +21,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -60,7 +61,6 @@ import com.android.systemui.volume.panel.component.volume.ui.composable.Internal
 import com.android.systemui.volume.ui.compose.slider.AccessibilityParams
 import com.android.systemui.volume.ui.compose.slider.Haptics
 import com.android.systemui.volume.ui.compose.slider.Slider
-import com.android.systemui.volume.ui.compose.slider.SliderIcon
 import com.google.common.annotations.VisibleForTesting
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -83,7 +83,7 @@ fun VolumeSlider(
             modifier
                 .borderOnFocus(
                     color = MaterialTheme.colorScheme.secondary,
-                    cornerSize = CornerSize(SliderTrackRoundedCorner),
+                    cornerSize = CornerSize(dimensions.trackCornerSize),
                 )
                 .animateContentSize()
     ) {
@@ -102,7 +102,7 @@ fun VolumeSlider(
         ) {
             if (state is SliderState.Empty) {
                 // reserve the space for the slider to avoid excess resizing
-                Spacer(modifier = Modifier.weight(1f).height(dimensions.thumbHeight))
+                Spacer(modifier = Modifier.weight(1f).height(dimensions.trackHeight))
             } else {
                 Slider(
                     value = state.value,
@@ -123,57 +123,26 @@ fun VolumeSlider(
                             colors = materialSliderColors,
                             isEnabled = state.isEnabled,
                             trackSize = dimensions.trackHeight,
-                            activeTrackEndIcon =
+                            trackCornerSize = dimensions.trackCornerSize,
+                            icon =
                                 state.icon?.let { icon ->
-                                    { iconsState ->
-                                        SliderIcon(
-                                            icon = {
-                                                Icon(
-                                                    icon = icon,
-                                                    tint = null,
-                                                    modifier =
-                                                        Modifier.size(dimensions.iconSize)
-                                                            .testTag(
-                                                                VolumeSlidersMotionTestKeys
-                                                                    .ACTIVE_ICON_TAG
-                                                            ),
-                                                )
-                                            },
-                                            isVisible = !iconsState.isInactiveTrackEndIconVisible,
+                                    {
+                                        Icon(
+                                            icon = icon,
+                                            tint = null,
+                                            modifier =
+                                                Modifier.size(dimensions.iconSize)
+                                                    .testTag(
+                                                        VolumeSlidersMotionTestKeys
+                                                            .ACTIVE_ICON_TAG
+                                                    ),
                                         )
                                     }
                                 },
-                            inactiveTrackEndIcon =
-                                state.icon?.let { icon ->
-                                    { iconsState ->
-                                        SliderIcon(
-                                            icon = {
-                                                Icon(
-                                                    icon = icon,
-                                                    tint = null,
-                                                    modifier =
-                                                        Modifier.size(dimensions.iconSize)
-                                                            .testTag(
-                                                                VolumeSlidersMotionTestKeys
-                                                                    .INACTIVE_ICON_TAG
-                                                            ),
-                                                )
-                                            },
-                                            isVisible = iconsState.isInactiveTrackEndIconVisible,
-                                        )
-                                    }
-                                },
-                            trackCornerSize = SliderTrackRoundedCorner,
                         )
                     },
-                    thumb = { sliderState, interactionSource ->
-                        SliderDefaults.Thumb(
-                            sliderState = sliderState,
-                            interactionSource = interactionSource,
-                            enabled = state.isEnabled,
-                            colors = materialSliderColors,
-                            thumbSize = DpSize(dimensions.thumbWidth, dimensions.thumbHeight),
-                        )
+                    thumb = { _, _ ->
+                        Box(modifier = Modifier.size(dimensions.trackHeight))
                     },
                     haptics =
                         hapticsViewModelFactory?.let {
@@ -187,7 +156,7 @@ fun VolumeSlider(
                             )
                         } ?: Haptics.Disabled,
                     modifier =
-                        Modifier.weight(1f).height(dimensions.thumbHeight).sysuiResTag(state.label),
+                        Modifier.weight(1f).height(dimensions.trackHeight).sysuiResTag(state.label),
                 )
             }
             button?.invoke(this)
@@ -227,23 +196,24 @@ object VolumeSlidersMotionTestKeys {
 }
 
 private object InternalDimensions {
-    val SliderTrackRoundedCorner = 12.dp
+    val SliderTrackRoundedCorner = 33.3.dp
 }
 
 data class VolumeSliderDimensions(
     val iconSize: Dp,
-    val thumbHeight: Dp,
-    val thumbWidth: Dp,
-    val trackHeight: Dp,
+    val thumbHeight: Dp = iconSize * 2f,
+    val thumbWidth: Dp = iconSize * 2f,
+    val trackHeight: Dp = iconSize * 2f,
     val verticalPadding: Dp,
+    val trackCornerSize: Dp = trackHeight * (34f / 49f),
 ) {
     companion object {
         val Defaults =
             VolumeSliderDimensions(
                 iconSize = 24.dp,
-                thumbHeight = 52.dp,
-                thumbWidth = 4.dp,
-                trackHeight = 40.dp,
+                thumbHeight = 48.dp,
+                thumbWidth = 48.dp,
+                trackHeight = 48.dp,
                 verticalPadding = 4.dp,
             )
     }

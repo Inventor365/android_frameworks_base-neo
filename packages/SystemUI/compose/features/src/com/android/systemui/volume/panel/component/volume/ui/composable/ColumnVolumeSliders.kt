@@ -245,7 +245,7 @@ private fun RowScope.ExpandButton(
     ) {
         PlatformIconButton(
             modifier =
-                Modifier.size(40.dp).semantics {
+                Modifier.size(48.dp).semantics {
                     role = Role.Switch
                     stateDescription = expandButtonStateDescription
                 },

@@ -28,6 +28,7 @@ import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Slider
@@ -43,6 +44,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -87,35 +89,59 @@ private fun debouncedValueState(
     sliderState: SliderState,
     debounceDuration: Duration,
     interactionSource: InteractionSource,
+    stepDistance: Float = 0f,
 ): FloatState {
     val valueState = remember { mutableFloatStateOf(incomingValue) }
     var debounceStartTimestamp by remember { mutableLongStateOf(0) }
-    var debouncedValue by remember { mutableFloatStateOf(incomingValue) }
-    val currentTimestamp = System.currentTimeMillis()
-    val shouldDebounce =
-        currentTimestamp - debounceStartTimestamp < debounceDuration.inWholeMilliseconds
+    var isUserControlled by remember { mutableStateOf(false) }
+
+    val isSameLevel = { v1: Float, v2: Float ->
+        if (stepDistance > 0f) {
+            round(v1 / stepDistance) == round(v2 / stepDistance)
+        } else {
+            kotlin.math.abs(v1 - v2) < 0.001f
+        }
+    }
+
     LaunchedEffect(interactionSource) {
         interactionSource.interactions.collect { interaction: Interaction ->
             when (interaction) {
-                is DragInteraction.Stop -> {
+                is DragInteraction.Start,
+                is PressInteraction.Press -> {
+                    isUserControlled = true
+                }
+                is DragInteraction.Stop,
+                is DragInteraction.Cancel,
+                is PressInteraction.Release,
+                is PressInteraction.Cancel -> {
                     debounceStartTimestamp = System.currentTimeMillis()
-                    debouncedValue = sliderState.value
+                    isUserControlled = true
+                    valueState.floatValue = sliderState.value
                 }
             }
         }
     }
-    LaunchedEffect(shouldDebounce) {
-        if (shouldDebounce) {
-            delay(debounceDuration)
+
+    LaunchedEffect(incomingValue, debounceStartTimestamp) {
+        if (sliderState.isDragging) return@LaunchedEffect
+        val currentTimestamp = System.currentTimeMillis()
+        val timeSinceStop = currentTimestamp - debounceStartTimestamp
+        if (timeSinceStop < debounceDuration.inWholeMilliseconds) {
+            delay(debounceDuration.inWholeMilliseconds - timeSinceStop)
+        }
+        if (sliderState.isDragging) return@LaunchedEffect
+        if (isUserControlled) {
+            if (isSameLevel(incomingValue, sliderState.value)) {
+                valueState.floatValue = sliderState.value
+            } else {
+                isUserControlled = false
+                valueState.floatValue = incomingValue
+            }
+        } else {
             valueState.floatValue = incomingValue
         }
     }
-    valueState.floatValue =
-        if (shouldDebounce) {
-            debouncedValue
-        } else {
-            incomingValue
-        }
+
     return valueState
 }
 
@@ -154,6 +180,7 @@ fun Slider(
             sliderState = sliderState,
             interactionSource = interactionSource,
             debounceDuration = 100.milliseconds,
+            stepDistance = stepDistance,
         )
 
     // We use Animatable for the slider animation to preserve animation velocity when receiving
@@ -181,10 +208,8 @@ fun Slider(
     }
 
     val valueChange: (Float) -> Unit = { newValue ->
-        if (sliderState.isDragging) {
-            sliderState.value = newValue
-            coroutineScope.launch { animatable.snapTo(newValue) }
-        }
+        sliderState.value = newValue
+        coroutineScope.launch { animatable.snapTo(newValue) }
         hapticsViewModel?.addVelocityDataPoint(newValue)
         if (haptics is Haptics.Enabled && !haptics.isDiscrete()) {
             hapticsViewModel?.onValueChange(newValue)
@@ -236,6 +261,7 @@ fun Slider(
         )
 
     sliderState.onValueChangeFinished = {
+        coroutineScope.launch { animatable.snapTo(sliderState.value) }
         hapticsViewModel?.onValueChangeEnded()
         onValueChangeFinished?.invoke(sliderState.value)
     }

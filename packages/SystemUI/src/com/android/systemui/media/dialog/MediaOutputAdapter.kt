@@ -17,6 +17,7 @@ package com.android.systemui.media.dialog
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.Drawable
@@ -419,13 +420,23 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
             mSlider.valueFrom = 0f
             mSlider.valueTo = maxVolume.toFloat()
             mSlider.stepSize = 1f
-            mSlider.thumbTintList = ColorStateList.valueOf(colorTheme.sliderActiveColor)
+            mSlider.thumbWidth = 0
+            mSlider.thumbHeight = 0
+            mSlider.thumbRadius = 0
+            mSlider.thumbTrackGapSize = 0
+            mSlider.haloRadius = 0
+            mSlider.thumbTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+            mSlider.haloTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             mSlider.trackActiveTintList = ColorStateList.valueOf(colorTheme.sliderActiveColor)
             mSlider.trackInactiveTintList = ColorStateList.valueOf(colorTheme.sliderInactiveColor)
             mSlider.trackIconActiveColor = ColorStateList.valueOf(colorTheme.sliderActiveIconColor)
             mSlider.trackIconInactiveColor =
                 ColorStateList.valueOf(colorTheme.sliderInactiveIconColor)
             val muteDrawable = getMuteDrawable(isInputDevice)
+            (mSlider as? MediaOutputSeekbar)?.setCustomIcons(
+                deviceDrawable = deviceDrawable,
+                muteDrawable = muteDrawable,
+            )
             initializeSeekbarVolume(
                 currentVolume = currentVolume,
                 deviceDrawable = deviceDrawable,
@@ -435,13 +446,13 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
             mSlider.clearOnChangeListeners() // Prevent adding multiple listeners
             mSlider.addOnChangeListener { _: Slider, value: Float, fromUser: Boolean ->
                 mSlider.stateDescription = getSliderStateDescription()
+                val seekBarVolume = value.toInt()
+                updateSliderIconsVisibility(
+                    deviceDrawable = deviceDrawable,
+                    muteDrawable = muteDrawable,
+                    sliderVolume = seekBarVolume,
+                )
                 if (fromUser) {
-                    val seekBarVolume = value.toInt()
-                    updateSliderIconsVisibility(
-                        deviceDrawable = deviceDrawable,
-                        muteDrawable = muteDrawable,
-                        sliderVolume = seekBarVolume,
-                    )
                     if (seekBarVolume != currentVolume) {
                         setLatestVolumeRequest(seekBarVolume)
                         volumeChangeCallback(seekBarVolume)
@@ -482,9 +493,19 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
             muteDrawable: Drawable?,
             sliderVolume: Int,
         ) {
-            mSlider.trackIconInactiveEnd = if (sliderVolume == 0) muteDrawable else deviceDrawable
-            mSlider.trackIconActiveEnd =
-                if (sliderVolume == mSlider.valueTo.toInt()) deviceDrawable else null
+            (mSlider as? MediaOutputSeekbar)?.setCustomIcons(
+                deviceDrawable = deviceDrawable,
+                muteDrawable = muteDrawable,
+            )
+            mSlider.trackIconActiveStart = null
+            mSlider.trackIconInactiveEnd = null
+            if (sliderVolume == 0) {
+                mSlider.trackIconActiveEnd = null
+                mSlider.trackIconInactiveStart = muteDrawable
+            } else {
+                mSlider.trackIconActiveEnd = deviceDrawable
+                mSlider.trackIconInactiveStart = null
+            }
         }
 
         private fun updateTitleIcon(

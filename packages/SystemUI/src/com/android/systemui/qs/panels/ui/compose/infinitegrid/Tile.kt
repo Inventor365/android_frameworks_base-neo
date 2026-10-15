@@ -468,6 +468,7 @@ private fun Context.getTileIcon(icon: IconProvider): Icon {
     } ?: Icon.Resource(R.drawable.ic_error_outline, null)
 }
 
+@Composable
 fun tileHorizontalArrangement(): Arrangement.Horizontal {
     return spacedBy(space = CommonTileDefaults.TileArrangementPadding, alignment = Alignment.Start)
 }

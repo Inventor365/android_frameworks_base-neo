@@ -484,11 +484,15 @@ object CommonTileDefaults {
         @ReadOnlyComposable
         get() = dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
 
+	val TileArrangementPadding: Dp
+		@Composable
+		@ReadOnlyComposable
+		get() = StartPadding
+
     val SideIconWidth = 32.dp
     val SideIconHeight = 20.dp
     val ChevronSize = 14.dp
     val TileEndPadding = 12.dp
-    val TileArrangementPadding = 6.dp
     val TileLabelBlurWidth = 32.dp
     const val TILE_MARQUEE_ITERATIONS = 1
     const val TILE_INITIAL_DELAY_MILLIS = 2000

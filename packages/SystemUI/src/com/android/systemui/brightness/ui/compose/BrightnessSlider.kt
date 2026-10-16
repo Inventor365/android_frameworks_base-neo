@@ -18,6 +18,7 @@ package com.android.systemui.brightness.ui.compose
 
 import android.content.Context
 import android.view.MotionEvent
+import android.widget.ImageView
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -43,6 +44,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderColors
 import androidx.compose.material3.Icon as M3Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,6 +67,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
@@ -82,6 +85,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.app.tracing.coroutines.launchTraced as launch
 import com.android.compose.lifecycle.DisposableEffectWithLifecycle
@@ -291,6 +295,8 @@ fun BrightnessSlider(
             drawAutoBrightnessButton(
                 autoMode = autoMode,
                 onIconClick = onIconClick,
+                colors = colors,
+                dimensions = dimensions,
             )
         }
     }
@@ -326,39 +332,42 @@ private fun Modifier.sliderBackground(
 private fun drawAutoBrightnessButton(
     autoMode: Boolean,
     onIconClick: suspend () -> Unit,
+    colors: SliderColors = SystemUISliderColors.Defaults,
+    dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val backgroundColor by animateColorAsState(
-        targetValue = if (autoMode) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            LocalAndroidColorScheme.current.surfaceEffect1
-        }
+        targetValue = if (autoMode) colors.activeTrackColor else colors.inactiveTrackColor,
+        label = "autoBrightnessBg"
     )
     val iconTint by animateColorAsState(
-        targetValue = if (autoMode) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        }
+        targetValue = if (autoMode) colors.activeTickColor else colors.inactiveTickColor,
+        label = "autoBrightnessTint"
     )
-    val painterRes = if (autoMode) {
-        R.drawable.ic_qs_brightness_auto_on
-    } else {
-        R.drawable.ic_qs_brightness_auto_off
-    }
+
+    val iconState = intArrayOf(
+        if (autoMode) android.R.attr.state_checked else -android.R.attr.state_checked
+    )
 
     FilledIconButton(
         onClick = { coroutineScope.launch { onIconClick() } },
-        colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = backgroundColor,
-            contentColor = iconTint,
-        ),
+        modifier = Modifier.size(dimensions.trackHeight), // Match brightness bar height
+        shape = RoundedCornerShape(SliderTrackRoundedCorner), // Match brightness bar shape
+        colors = IconButtonDefaults.filledIconButtonColors(containerColor = backgroundColor),
     ) {
-        Icon(
-            painter = painterResource(painterRes),
-            contentDescription = stringResource(R.string.accessibility_adaptive_brightness),
+        AndroidView(
             modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+            factory = { context ->
+                ImageView(context).apply {
+                    setImageResource(R.drawable.ic_qs_brightness_auto)
+                    setImageState(iconState, false)
+                    drawable?.jumpToCurrentState() // start in the right state, no animation
+                }
+            },
+            update = { view ->
+                view.setImageState(iconState, false)
+                view.setColorFilter(iconTint.toArgb())
+            }
         )
     }
 }

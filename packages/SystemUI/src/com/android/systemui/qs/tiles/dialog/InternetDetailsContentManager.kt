@@ -886,8 +886,13 @@ constructor(
             else View.GONE
 
         val secondaryRes =
-            if (isNetworkConnected) R.style.TextAppearance_TileDetailsEntrySubTitle_Active
-            else R.style.TextAppearance_TileDetailsEntrySubTitle
+            if (isFlagEnabledAndInDialog) {
+                if (isNetworkConnected) R.style.TextAppearance_InternetDialog_Secondary_Active
+                else R.style.TextAppearance_InternetDialog_Secondary
+            } else {
+                if (isNetworkConnected) R.style.TextAppearance_TileDetailsEntrySubTitle_Active
+                else R.style.TextAppearance_TileDetailsEntrySubTitle
+            }
         if (nonDdsVisibility == View.VISIBLE) {
             // non DDS is the currently active sub, set primary visual for it
             setNonDDSActive(autoSwitchNonDdsSubId)
@@ -903,8 +908,8 @@ constructor(
             mobileNetworkLayout.background =
                 if (isNetworkConnected) entryBackgroundActive else entryBackgroundInactive
             mobileTitleTextView.setTextAppearance(
-                if (isNetworkConnected) R.style.TextAppearance_TileDetailsEntryTitle_Active
-                else R.style.TextAppearance_TileDetailsEntryTitle
+                if (isNetworkConnected) R.style.TextAppearance_InternetDialog_Active
+                else R.style.TextAppearance_InternetDialog
             )
             mobileSummaryTextView.setTextAppearance(secondaryRes)
         }
@@ -941,12 +946,18 @@ constructor(
 
         contentView.requireViewById<TextView>(R.id.secondary_mobile_title).apply {
             text = getMobileNetworkTitle(autoSwitchNonDdsSubId)
-            setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle_Active)
+            setTextAppearance(
+                if (isFlagEnabledAndInDialog) R.style.TextAppearance_InternetDialog_Active
+                else R.style.TextAppearance_TileDetailsEntryTitle_Active
+            )
         }
 
         val secondarySummaryTextView =
             contentView.requireViewById<TextView>(R.id.secondary_mobile_summary)
         val summary = getMobileNetworkSummary(autoSwitchNonDdsSubId)
+        val secondarySummaryRes =
+            if (isFlagEnabledAndInDialog) R.style.TextAppearance_InternetDialog_Secondary_Active
+            else R.style.TextAppearance_TileDetailsEntryTitle_Active
         if (Flags.internetDialogDelegateLegacyDeprecation()) {
             backgroundExecutor.execute {
                 handler.post {
@@ -954,7 +965,7 @@ constructor(
                         if (!TextUtils.isEmpty(summary)) {
                             text = Html.fromHtml(summary, Html.FROM_HTML_MODE_LEGACY)
                             breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
-                            setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle_Active)
+                            setTextAppearance(secondarySummaryRes)
                         }
                     }
                 }
@@ -964,7 +975,7 @@ constructor(
                 if (!TextUtils.isEmpty(summary)) {
                     text = Html.fromHtml(summary, Html.FROM_HTML_MODE_LEGACY)
                     breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
-                    setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle_Active)
+                    setTextAppearance(secondarySummaryRes)
                 }
             }
         }
@@ -989,8 +1000,14 @@ constructor(
             mobileNetworkLayout.background = entryBackgroundInactive
         }
 
-        mobileTitleTextView.setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle)
-        mobileSummaryTextView.setTextAppearance(R.style.TextAppearance_TileDetailsEntrySubTitle)
+        mobileTitleTextView.setTextAppearance(
+            if (isFlagEnabledAndInDialog) R.style.TextAppearance_InternetDialog
+            else R.style.TextAppearance_TileDetailsEntryTitle
+        )
+        mobileSummaryTextView.setTextAppearance(
+            if (isFlagEnabledAndInDialog) R.style.TextAppearance_InternetDialog_Secondary
+            else R.style.TextAppearance_TileDetailsEntrySubTitle
+        )
         signalIcon.setColorFilter(context.getColor(R.color.connected_network_secondary_color))
     }
 

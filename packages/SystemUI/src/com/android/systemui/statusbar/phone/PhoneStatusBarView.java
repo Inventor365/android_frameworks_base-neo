@@ -29,6 +29,8 @@ import android.graphics.Region;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.AttributeSet;
@@ -88,6 +90,10 @@ public class PhoneStatusBarView extends FrameLayout {
     private GestureDetector mDoubleTapToSleepGesture;
     private boolean mDoubleTapToSleepEnabled;
     private ContentObserver mDoubleTapObserver;
+    private final Vibrator mVibrator;
+
+    private static final VibrationEffect EFFECT_CLICK =
+            VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK);
 
     /**
      * Draw this many pixels into the left/right side of the cutout to optimally use the space
@@ -96,6 +102,7 @@ public class PhoneStatusBarView extends FrameLayout {
 
     public PhoneStatusBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        mVibrator = context.getSystemService(Vibrator.class);
     }
 
     void setLongPressGestureDetector(
@@ -186,6 +193,9 @@ public class PhoneStatusBarView extends FrameLayout {
                     new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(MotionEvent event) {
+                    if (mVibrator != null && mVibrator.hasVibrator()) {
+                        mVibrator.vibrate(EFFECT_CLICK);
+                    }
                     PowerManager pm = mContext.getSystemService(PowerManager.class);
                     if (pm != null) {
                         pm.goToSleep(event.getEventTime(),

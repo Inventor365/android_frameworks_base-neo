@@ -23,6 +23,8 @@ import android.content.IntentFilter
 import android.graphics.Point
 import android.graphics.Rect
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityManager
@@ -267,6 +269,13 @@ constructor(
     fun onDoubleClick() {
         if (isDoubleTapHandlingEnabled.value) {
             Log.d(TAG, "going to sleep due to double tap")
+            context.getSystemService(Vibrator::class.java)?.let { vibrator ->
+                if (vibrator.hasVibrator()) {
+                    vibrator.vibrate(
+                        VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                    )
+                }
+            }
             powerManager.goToSleep(systemClock.uptimeMillis())
         } else {
             pulsingGestureListener.onDoubleTapEvent()

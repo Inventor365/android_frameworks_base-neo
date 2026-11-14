@@ -679,8 +679,7 @@ private fun ContentScope.CardForegroundContent(
                     modifier =
                         Modifier.align(Alignment.TopStart)
                             .padding(top = 16.dp, start = 16.dp)
-                            .size(24.dp)
-                            .clip(CircleShape),
+                            .size(24.dp),
                 )
             }
 

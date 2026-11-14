@@ -25,6 +25,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -84,8 +85,10 @@ import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -100,14 +103,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -118,10 +124,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.node.Ref
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -140,6 +149,7 @@ import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.util.fastRoundToInt
+import androidx.core.graphics.ColorUtils
 import com.android.compose.PlatformButton
 import com.android.compose.PlatformIconButton
 import com.android.compose.PlatformOutlinedButton
@@ -180,9 +190,12 @@ import com.android.systemui.media.remedia.ui.viewmodel.MediaSettingsButtonViewMo
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.verticalSquish
 import com.android.systemui.res.R
+import com.android.systemui.surfaceeffects.core.ripple.RippleAnimationConfig
+import com.android.systemui.surfaceeffects.core.ripple.RippleShader
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -435,113 +448,143 @@ private fun Card(
 
     val colorScheme = rememberAnimatedColorScheme(viewModel.colorScheme)
 
+    val rippleController = remember { MediaTouchRippleController() }
+    val density = LocalDensity.current.density
+    LaunchedEffect(density) {
+        rippleController.density = density
+    }
+    LaunchedEffect(colorScheme.primary) {
+        rippleController.updateColor(colorScheme.primary.toArgb())
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            rippleController.activeRipples.clear()
+        }
+    }
+
     // Each time the presentation style changes, animate to the corresponding scene.
     LaunchedEffect(cardStyle) {
         stlState.setTargetScene(targetScene = cardStyle.toScene(), animationScope = this)
     }
 
-    Box(modifier) {
-        if (carouselStyle != MediaPresentationStyle.Compact) {
-            CardBackground(
-                image = viewModel.background,
-                colorScheme = colorScheme,
-                modifier =
-                    Modifier.matchParentSize()
-                        .sysuiResTag(MediaRes.BACKGROUND)
-                        .clip(RoundedCornerShape(32.dp)),
-            )
-        }
-
-        Expandable(
-            controller =
-                rememberExpandableController(color = Color.Transparent, shape = RectangleShape),
-            useModifierBasedImplementation = true,
-            modifier = Modifier.verticalSquish(mediaSquishiness),
+    CompositionLocalProvider(LocalMediaTouchRippleController provides rippleController) {
+        Box(
+            modifier =
+                modifier.onGloballyPositioned {
+                    rippleController.cardCoordinates = it
+                    rippleController.cardSize =
+                        Size(it.size.width.toFloat(), it.size.height.toFloat())
+                }
         ) {
-            key(stlState) {
-                SceneTransitionLayout(state = stlState, debugName = "Media Card") {
-                    scene(Media.Scenes.Default) {
-                        CardForeground(
-                            expandable = it,
-                            mediaViewModel = mediaViewModel,
-                            cardIndex = cardIndex,
-                            colorScheme = colorScheme,
-                            threeRows = true,
-                            fillHeight = false,
-                        )
-                    }
+            if (carouselStyle != MediaPresentationStyle.Compact) {
+                CardBackground(
+                    image = viewModel.background,
+                    colorScheme = colorScheme,
+                    modifier =
+                        Modifier.matchParentSize()
+                            .sysuiResTag(MediaRes.BACKGROUND)
+                            .clip(RoundedCornerShape(32.dp)),
+                )
+                MediaTouchRippleOverlay(
+                    rippleController = rippleController,
+                    modifier =
+                        Modifier.matchParentSize()
+                            .sysuiResTag(MediaRes.TOUCH_RIPPLE_VIEW)
+                            .clip(RoundedCornerShape(32.dp)),
+                )
+            }
 
-                    scene(Media.Scenes.Large) {
-                        CardForeground(
-                            expandable = it,
-                            mediaViewModel = mediaViewModel,
-                            cardIndex = cardIndex,
-                            colorScheme = colorScheme,
-                            threeRows = true,
-                            fillHeight = true,
-                        )
-                    }
-
-                    scene(Media.Scenes.Compressed) {
-                        CardForeground(
-                            expandable = it,
-                            mediaViewModel = mediaViewModel,
-                            cardIndex = cardIndex,
-                            colorScheme = colorScheme,
-                            threeRows = false,
-                            fillHeight = false,
-                        )
-                    }
-
-                    scene(Media.Scenes.Compact) {
-                        CompactCardForeground(expandable = it, viewModel = viewModel)
-                    }
-
-                    scene(Media.Scenes.Thumbnail) {
-                        // Thumbnail is album art only, no foreground elements
-                        var thumbnailModifier =
-                            Modifier.clickable(onClick = { viewModel.onClick(it) }).height {
-                                when (carouselStyle) {
-                                    MediaPresentationStyle.Default -> Media.DEFAULT_HEIGHT
-                                    // Large is only used for communal, which isn't scrollable
-                                    MediaPresentationStyle.Large -> Dp.Unspecified
-                                    MediaPresentationStyle.Compressed ->
-                                        lerp(
-                                            Media.COMPRESSED_HEIGHT,
-                                            Media.DEFAULT_HEIGHT,
-                                            expansion(),
-                                        )
-                                    MediaPresentationStyle.Compact -> Media.COMPACT_HEIGHT
-                                    else ->
-                                        throw IllegalArgumentException(
-                                            "Invalid carousel presentation"
-                                        )
-                                }.roundToPx()
-                            }
-                        if (carouselStyle == MediaPresentationStyle.Compact) {
-                            thumbnailModifier =
-                                thumbnailModifier.then(
-                                    Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
-                                )
+            Expandable(
+                controller =
+                    rememberExpandableController(color = Color.Transparent, shape = RectangleShape),
+                useModifierBasedImplementation = true,
+                modifier = Modifier.verticalSquish(mediaSquishiness),
+            ) {
+                key(stlState) {
+                    SceneTransitionLayout(state = stlState, debugName = "Media Card") {
+                        scene(Media.Scenes.Default) {
+                            CardForeground(
+                                expandable = it,
+                                mediaViewModel = mediaViewModel,
+                                cardIndex = cardIndex,
+                                colorScheme = colorScheme,
+                                threeRows = true,
+                                fillHeight = false,
+                            )
                         }
-                        Spacer(modifier = modifier.then(thumbnailModifier))
+
+                        scene(Media.Scenes.Large) {
+                            CardForeground(
+                                expandable = it,
+                                mediaViewModel = mediaViewModel,
+                                cardIndex = cardIndex,
+                                colorScheme = colorScheme,
+                                threeRows = true,
+                                fillHeight = true,
+                            )
+                        }
+
+                        scene(Media.Scenes.Compressed) {
+                            CardForeground(
+                                expandable = it,
+                                mediaViewModel = mediaViewModel,
+                                cardIndex = cardIndex,
+                                colorScheme = colorScheme,
+                                threeRows = false,
+                                fillHeight = false,
+                            )
+                        }
+
+                        scene(Media.Scenes.Compact) {
+                            CompactCardForeground(expandable = it, viewModel = viewModel)
+                        }
+
+                        scene(Media.Scenes.Thumbnail) {
+                            // Thumbnail is album art only, no foreground elements
+                            var thumbnailModifier =
+                                Modifier.clickable(onClick = { viewModel.onClick(it) }).height {
+                                    when (carouselStyle) {
+                                        MediaPresentationStyle.Default -> Media.DEFAULT_HEIGHT
+                                        // Large is only used for communal, which isn't scrollable
+                                        MediaPresentationStyle.Large -> Dp.Unspecified
+                                        MediaPresentationStyle.Compressed ->
+                                            lerp(
+                                                Media.COMPRESSED_HEIGHT,
+                                                Media.DEFAULT_HEIGHT,
+                                                expansion(),
+                                            )
+                                        MediaPresentationStyle.Compact -> Media.COMPACT_HEIGHT
+                                        else ->
+                                            throw IllegalArgumentException(
+                                                "Invalid carousel presentation"
+                                            )
+                                    }.roundToPx()
+                                }
+                            if (carouselStyle == MediaPresentationStyle.Compact) {
+                                thumbnailModifier =
+                                    thumbnailModifier.then(
+                                        Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+                                    )
+                            }
+                            Spacer(modifier = modifier.then(thumbnailModifier))
+                        }
                     }
                 }
             }
-        }
 
-        LaunchedEffect(cardStyle) {
-            launch {
-                if (
-                    cardStyle != MediaPresentationStyle.Thumbnail &&
-                        carouselStyle == MediaPresentationStyle.Compressed
-                ) {
-                    synchronizeMediaState(
-                        stlState,
-                        expansion,
-                        Media.Scenes.Compressed,
-                        Media.Scenes.Default,
-                    )
+            LaunchedEffect(cardStyle) {
+                launch {
+                    if (
+                        cardStyle != MediaPresentationStyle.Thumbnail &&
+                            carouselStyle == MediaPresentationStyle.Compressed
+                    ) {
+                        synchronizeMediaState(
+                            stlState,
+                            expansion,
+                            Media.Scenes.Compressed,
+                            Media.Scenes.Default,
+                        )
+                    }
                 }
             }
         }
@@ -993,6 +1036,142 @@ private fun CardBackground(
         } else {
             // Placeholder.
             Box(Modifier.background(colorScheme.background).fillMaxSize())
+        }
+    }
+}
+
+private val LocalMediaTouchRippleController =
+    compositionLocalOf<MediaTouchRippleController?> { null }
+
+private class ActiveRipple(
+    val shader: RippleShader,
+    val brush: ShaderBrush,
+    val duration: Long,
+    val shouldDistort: Boolean,
+    val progress: Animatable<Float, AnimationVector1D>,
+)
+
+private class MediaTouchRippleController {
+    var cardCoordinates: LayoutCoordinates? = null
+    var cardSize: Size = Size.Zero
+    var primaryColor: Int = android.graphics.Color.WHITE
+    var density: Float = 1f
+    val activeRipples = mutableStateListOf<ActiveRipple>()
+
+    fun updateColor(color: Int) {
+        primaryColor = color
+        activeRipples.fastForEach { ripple ->
+            ripple.shader.color = ColorUtils.setAlphaComponent(color, 100)
+        }
+    }
+
+    fun playRipple(
+        buttonCoordinates: LayoutCoordinates,
+        coroutineScope: CoroutineScope,
+    ) {
+        val card = cardCoordinates
+        val centerInCard =
+            if (card != null && card.isAttached && buttonCoordinates.isAttached) {
+                val centerInBtn =
+                    Offset(
+                        buttonCoordinates.size.width / 2f,
+                        buttonCoordinates.size.height / 2f,
+                    )
+                runCatching { card.localPositionOf(buttonCoordinates, centerInBtn) }
+                    .getOrDefault(Offset(cardSize.width / 2f, cardSize.height / 2f))
+            } else {
+                Offset(cardSize.width / 2f, cardSize.height / 2f)
+            }
+
+        val width = if (cardSize.width > 0f) cardSize.width else card?.size?.width?.toFloat() ?: 0f
+        val height =
+            if (cardSize.height > 0f) cardSize.height else card?.size?.height?.toFloat() ?: 0f
+        val maxEdgeRadius =
+            maxOf(
+                centerInCard.x,
+                centerInCard.y,
+                width - centerInCard.x,
+                height - centerInCard.y,
+            )
+        val maxSize = maxOf(width * 2f, maxEdgeRadius * 2f)
+
+        val config =
+            RippleAnimationConfig(
+                rippleShape = RippleShader.RippleShape.CIRCLE,
+                duration = 1500L,
+                centerX = centerInCard.x,
+                centerY = centerInCard.y,
+                maxWidth = maxSize,
+                maxHeight = maxSize,
+                pixelDensity = density,
+                color = primaryColor,
+                opacity = 100,
+                sparkleStrength = 0f,
+                baseRingFadeParams = null,
+                sparkleRingFadeParams = null,
+                centerFillFadeParams = null,
+                shouldDistort = false,
+            )
+
+        val shader =
+            RippleShader(config.rippleShape).apply {
+                applyConfig(config)
+            }
+        val brush = ShaderBrush(shader)
+        val animatable = Animatable(0f)
+        val activeRipple =
+            ActiveRipple(
+                shader = shader,
+                brush = brush,
+                duration = config.duration,
+                shouldDistort = config.shouldDistort,
+                progress = animatable,
+            )
+
+        if (activeRipples.size >= 10) {
+            activeRipples.removeAt(0)
+        }
+        activeRipples.add(activeRipple)
+
+        coroutineScope.launch {
+            try {
+                animatable.animateTo(
+                    targetValue = 1f,
+                    animationSpec =
+                        tween(
+                            durationMillis = config.duration.toInt(),
+                            easing = LinearEasing,
+                        ),
+                )
+            } finally {
+                activeRipples.remove(activeRipple)
+            }
+        }
+    }
+}
+
+/** Renders the touch ripple overlay on top of the card background. */
+@Composable
+private fun MediaTouchRippleOverlay(
+    rippleController: MediaTouchRippleController,
+    modifier: Modifier = Modifier,
+) {
+    if (rippleController.activeRipples.isEmpty()) {
+        Spacer(modifier)
+        return
+    }
+
+    Canvas(modifier = modifier) {
+        rippleController.cardSize = size
+        rippleController.density = density
+        rippleController.activeRipples.fastForEach { ripple ->
+            val progress = ripple.progress.value
+            ripple.shader.rawProgress = progress
+            ripple.shader.time = progress * ripple.duration
+            ripple.shader.distortionStrength = if (ripple.shouldDistort) 1f - progress else 0f
+            runCatching {
+                drawRect(brush = ripple.brush, size = size)
+            }
         }
     }
 }
@@ -1609,13 +1788,18 @@ private fun ContentScope.PlayPauseAction(
 
     val scaleAnimatable = remember { Animatable(1.0f) }
     val scope = rememberCoroutineScope()
+    val rippleController = LocalMediaTouchRippleController.current
+    var buttonCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     // This element can be animated when switching between scenes inside a media card.
     Element(key = Media.Elements.PlayPauseButton, modifier = modifier) {
         PlatformButton(
             onClick = {
-                viewModel.onClick?.let {
-                    it()
+                if (viewModel.onClick != null) {
+                    buttonCoordinates?.let { coords ->
+                        rippleController?.playRipple(coords, scope)
+                    }
+                    viewModel.onClick.invoke()
                     scope.launch {
                         scaleAnimatable.animateTo(
                             targetValue = 1.125f,
@@ -1631,7 +1815,10 @@ private fun ContentScope.PlayPauseAction(
             enabled = viewModel.onClick != null,
             colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
             shape = RoundedCornerShape(cornerRadius),
-            modifier = Modifier.size(buttonSize).scale(scaleAnimatable.value),
+            modifier =
+                Modifier.size(buttonSize)
+                    .onGloballyPositioned { buttonCoordinates = it }
+                    .scale(scaleAnimatable.value),
         ) {
             when (viewModel.state) {
                 is MediaSessionState.Playing,
@@ -1702,13 +1889,27 @@ private fun SecondaryActionContent(
     resId: String,
     modifier: Modifier = Modifier,
 ) {
-    val sharedModifier = modifier.size(48.dp).padding(13.dp)
+    val rippleController = LocalMediaTouchRippleController.current
+    val scope = rememberCoroutineScope()
+    var buttonCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val sharedModifier =
+        modifier
+            .size(48.dp)
+            .onGloballyPositioned { buttonCoordinates = it }
+            .padding(13.dp)
     when (viewModel) {
         is MediaSecondaryActionViewModel.Action ->
             when (viewModel.icon) {
                 is Icon.Resource ->
                     PlatformIconButton(
-                        onClick = viewModel.onClick ?: {},
+                        onClick = {
+                            if (viewModel.onClick != null) {
+                                buttonCoordinates?.let { coords ->
+                                    rippleController?.playRipple(coords, scope)
+                                }
+                                viewModel.onClick.invoke()
+                            }
+                        },
                         modifier = sharedModifier.sysuiResTag(resId),
                         enabled = viewModel.onClick != null,
                         colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor),
@@ -1718,7 +1919,14 @@ private fun SecondaryActionContent(
 
                 is Icon.Loaded ->
                     PlatformIconButton(
-                        onClick = viewModel.onClick ?: {},
+                        onClick = {
+                            if (viewModel.onClick != null) {
+                                buttonCoordinates?.let { coords ->
+                                    rippleController?.playRipple(coords, scope)
+                                }
+                                viewModel.onClick.invoke()
+                            }
+                        },
                         modifier = sharedModifier.sysuiResTag(resId),
                         enabled = viewModel.onClick != null,
                         colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor),
@@ -1849,6 +2057,7 @@ private interface AnimatedColorScheme {
 private object MediaRes {
     const val EMPTY_STRING = ""
     const val BACKGROUND = "album_art"
+    const val TOUCH_RIPPLE_VIEW = "touch_ripple_view"
     const val PLAY_PAUSE_BTN = "actionPlayPause"
     const val NEXT_BTN = "actionNext"
     const val PREV_BTN = "actionPrev"

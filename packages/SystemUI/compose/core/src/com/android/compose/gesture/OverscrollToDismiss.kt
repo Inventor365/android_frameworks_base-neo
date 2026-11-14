@@ -63,20 +63,22 @@ import kotlinx.coroutines.launch
 fun Modifier.overscrollToDismiss(
     orientation: Orientation = Orientation.Horizontal,
     enabled: Boolean = true,
+    canDismiss: () -> Boolean = { true },
     onDismissed: () -> Unit,
-) = this.then(OverscrollToDismissElement(orientation, enabled, onDismissed))
+) = this.then(OverscrollToDismissElement(orientation, enabled, canDismiss, onDismissed))
 
 private data class OverscrollToDismissElement(
     val orientation: Orientation,
     val enabled: Boolean,
+    val canDismiss: () -> Boolean,
     val onDismissed: () -> Unit,
 ) : ModifierNodeElement<OverscrollToDismissNode>() {
     override fun create(): OverscrollToDismissNode {
-        return OverscrollToDismissNode(orientation, enabled, onDismissed)
+        return OverscrollToDismissNode(orientation, enabled, onDismissed, canDismiss)
     }
 
     override fun update(node: OverscrollToDismissNode) {
-        node.update(orientation, enabled, onDismissed)
+        node.update(orientation, enabled, onDismissed, canDismiss)
     }
 
     override fun InspectorInfo.inspectableProperties() {
@@ -90,6 +92,7 @@ private class OverscrollToDismissNode(
     orientation: Orientation,
     enabled: Boolean,
     var onDismissed: () -> Unit,
+    var canDismiss: () -> Boolean,
 ) :
     DelegatingNode(),
     LayoutModifierNode,
@@ -118,8 +121,14 @@ private class OverscrollToDismissNode(
     private var delegateNode =
         delegate(NestedDraggableRootNode(this, orientation, null, enabled, true))
 
-    fun update(orientation: Orientation, enabled: Boolean, onDismissed: () -> Unit) {
+    fun update(
+        orientation: Orientation,
+        enabled: Boolean,
+        onDismissed: () -> Unit,
+        canDismiss: () -> Boolean,
+    ) {
         this.onDismissed = onDismissed
+        this.canDismiss = canDismiss
         delegateNode.update(this, orientation, null, enabled, true)
     }
 
@@ -226,7 +235,9 @@ private class OverscrollToDismissNode(
 
             val settleAttached =
                 currentState == MagneticDetach.State.Attached ||
-                    (currentState == MagneticDetach.State.Detached && isFlingInOppositeDirection)
+                    (currentState == MagneticDetach.State.Detached &&
+                        isFlingInOppositeDirection) ||
+                    !canDismiss()
 
             dragState =
                 if (settleAttached) DragState.Idle

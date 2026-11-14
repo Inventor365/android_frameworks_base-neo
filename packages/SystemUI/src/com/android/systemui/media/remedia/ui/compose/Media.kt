@@ -45,8 +45,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.indication
@@ -324,23 +322,13 @@ private fun CardCarouselContent(
             }
         }
     }
-    var isFalseTouchDetected: Boolean by
-        remember(behavior.isCarouselScrollFalseTouch) { mutableStateOf(false) }
-    val isSwipingEnabled = behavior.isCarouselScrollingEnabled && !isFalseTouchDetected
+    val isSwipingEnabled = behavior.isCarouselScrollingEnabled
 
     val roundedCornerShape = remember { RoundedCornerShape(32.dp) }
 
     Box(
         modifier =
             modifier
-                .pointerInput(behavior) {
-                    if (behavior.isCarouselScrollFalseTouch != null) {
-                        awaitEachGesture {
-                            awaitFirstDown(false, PointerEventPass.Initial)
-                            isFalseTouchDetected = behavior.isCarouselScrollFalseTouch.invoke()
-                        }
-                    }
-                }
                 .graphicsLayer {
                     shape = roundedCornerShape
                     clip = true
@@ -397,6 +385,7 @@ private fun CardCarouselContent(
                     Modifier.overscrollToDismiss(
                         orientation = Orientation.Horizontal,
                         enabled = isSwipingEnabled,
+                        canDismiss = { behavior.isCarouselDismissFalseTouch?.invoke() != true },
                         onDismissed = onDismissed,
                     )
             ) {
@@ -1847,12 +1836,8 @@ data class MediaUiBehavior(
     val carouselVisibility: MediaCarouselVisibility = MediaCarouselVisibility.WhenNotEmpty,
     /** If false, carousel visibility will fade without animating its measured height. */
     val isCarouselSizeAnimationEnabled: Boolean = true,
-    /**
-     * If provided, this callback will be consulted at the beginning of each carousel scroll gesture
-     * to see if the falsing system thinks that it's a false touch. If it then returns `true`, the
-     * scroll will be canceled.
-     */
-    val isCarouselScrollFalseTouch: (() -> Boolean)? = null,
+    /** Checked when deciding whether an overscroll swipe should dismiss the carousel. */
+    val isCarouselDismissFalseTouch: (() -> Boolean)? = null,
 )
 
 @Stable

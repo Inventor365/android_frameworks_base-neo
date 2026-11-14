@@ -189,7 +189,7 @@ constructor(
                     MediaUiBehavior(
                         carouselVisibility = MediaCarouselVisibility.WhenAnyCardIsActive,
                         isCarouselSizeAnimationEnabled = false,
-                        isCarouselScrollFalseTouch = {
+                        isCarouselDismissFalseTouch = {
                             falsingSystem.isFalseTouch(Classifier.MEDIA_CAROUSEL_SWIPE)
                         },
                     ),

@@ -17,6 +17,7 @@ package com.android.systemui.shade
 
 import android.content.res.Configuration
 import android.testing.TestableLooper.RunWithLooper
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
 import android.widget.FrameLayout
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -34,15 +35,18 @@ import com.android.systemui.classifier.FalsingCollectorFake
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent
 import com.android.systemui.dock.DockManager
 import com.android.systemui.dump.DumpManager
+import com.android.systemui.flags.DisableSceneContainer
 import com.android.systemui.flags.FakeFeatureFlags
 import com.android.systemui.flags.Flags
 import com.android.systemui.keyevent.domain.interactor.SysUIKeyEventHandler
 import com.android.systemui.keyguard.KeyguardUnlockAnimationController
+import com.android.systemui.keyguard.domain.interactor.KeyguardTouchHandlingInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
 import com.android.systemui.keyguard.domain.interactor.dozeTouchInteractor
 import com.android.systemui.keyguard.shared.model.Edge
 import com.android.systemui.keyguard.shared.model.KeyguardState.DREAMING
 import com.android.systemui.keyguard.shared.model.KeyguardState.LOCKSCREEN
+import com.android.systemui.plugins.FalsingManager
 import com.android.systemui.res.R
 import com.android.systemui.scene.ui.view.WindowRootViewKeyEventHandler
 import com.android.systemui.shade.NotificationShadeWindowView.InteractionEventHandler
@@ -50,13 +54,15 @@ import com.android.systemui.shade.data.repository.ShadeAnimationRepository
 import com.android.systemui.shade.data.repository.ShadeRepositoryImpl
 import com.android.systemui.shade.domain.interactor.PanelExpansionInteractor
 import com.android.systemui.shade.domain.interactor.ShadeAnimationInteractorLegacyImpl
-import com.android.systemui.shade.domain.interactor.shadeStatusBarComponentsInteractor
+import com.android.systemui.shade.domain.interactor.ShadeStatusBarComponentsInteractor
 import com.android.systemui.statusbar.DragDownHelper
 import com.android.systemui.statusbar.LockscreenShadeTransitionController
 import com.android.systemui.statusbar.NotificationInsetsController
 import com.android.systemui.statusbar.NotificationShadeDepthController
 import com.android.systemui.statusbar.NotificationShadeWindowController
 import com.android.systemui.statusbar.SysuiStatusBarStateController
+import com.android.systemui.statusbar.StatusBarState.KEYGUARD
+import com.android.systemui.statusbar.StatusBarState.SHADE
 import com.android.systemui.statusbar.notification.data.repository.NotificationLaunchAnimationRepository
 import com.android.systemui.statusbar.notification.domain.interactor.NotificationLaunchAnimationInteractor
 import com.android.systemui.statusbar.notification.stack.AmbientState
@@ -66,6 +72,7 @@ import com.android.systemui.statusbar.phone.CentralSurfaces
 import com.android.systemui.statusbar.phone.ConfigurationForwarder
 import com.android.systemui.statusbar.phone.DozeScrimController
 import com.android.systemui.statusbar.phone.DozeServiceHost
+import com.android.systemui.statusbar.phone.PhoneStatusBarViewController
 import com.android.systemui.statusbar.window.StatusBarWindowStateController
 import com.android.systemui.testKosmos
 import com.android.systemui.unfold.SysUIUnfoldComponent
@@ -77,7 +84,9 @@ import com.android.systemui.util.time.FakeSystemClock
 import com.android.systemui.window.ui.BlurChoreographer
 import com.android.systemui.window.ui.viewmodel.WindowRootViewModel
 import com.google.common.truth.Truth.assertThat
+import dagger.Lazy
 import java.util.Optional
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -146,6 +155,10 @@ class NotificationShadeWindowViewTest : SysuiTestCase() {
     @Mock private lateinit var keyguardTransitionInteractor: KeyguardTransitionInteractor
     @Mock lateinit var primaryBouncerInteractor: PrimaryBouncerInteractor
     @Mock lateinit var alternateBouncerInteractor: AlternateBouncerInteractor
+    @Mock lateinit var falsingManager: FalsingManager
+    @Mock lateinit var keyguardTouchHandlingInteractor: KeyguardTouchHandlingInteractor
+    @Mock
+    lateinit var shadeStatusBarComponentsInteractor: ShadeStatusBarComponentsInteractor
     @Mock lateinit var configurationForwarder: ConfigurationForwarder
     @Captor
     private lateinit var interactionEventHandlerCaptor: ArgumentCaptor<InteractionEventHandler>
@@ -183,6 +196,8 @@ class NotificationShadeWindowViewTest : SysuiTestCase() {
             .thenReturn(statusBarWindowStateController)
         whenever(perDisplaySubcomponentRepository.getOrDefault(anyInt()))
             .thenReturn(systemUIDisplaySubcomponent)
+        whenever(shadeStatusBarComponentsInteractor.phoneStatusBarViewController)
+            .thenReturn(MutableStateFlow(mock<PhoneStatusBarViewController>()))
 
         val featureFlags = FakeFeatureFlags()
         featureFlags.set(Flags.SPLIT_SHADE_SUBPIXEL_OPTIMIZATION, true)
@@ -234,11 +249,13 @@ class NotificationShadeWindowViewTest : SysuiTestCase() {
                 { configurationForwarder },
                 brightnessMirrorShowingInteractor,
                 UnconfinedTestDispatcher(),
-                kosmos.shadeStatusBarComponentsInteractor,
+                shadeStatusBarComponentsInteractor,
                 kosmos.dozeTouchInteractor,
                 kosmos.javaAdapter,
+                Lazy { keyguardTouchHandlingInteractor },
+                falsingManager,
+                mock(),
             )
-
         controller.setupExpandedStatusBar()
         controller.setDragDownHelper(dragDownHelper)
     }
@@ -254,6 +271,33 @@ class NotificationShadeWindowViewTest : SysuiTestCase() {
 
             // THEN we shouldn't intercept touch
             assertThat(interactionEventHandler.shouldInterceptTouchEvent(mock())).isFalse()
+        }
+
+    @Test
+    @DisableSceneContainer
+    fun doubleTapAnywhereOnLockscreen_putsDeviceToSleep() =
+        testScope.runTest {
+            captureInteractionEventHandler()
+            whenever(statusBarStateController.state).thenReturn(KEYGUARD)
+            whenever(statusBarStateController.isDozing).thenReturn(false)
+            whenever(falsingManager.isFalseDoubleTap).thenReturn(false)
+
+            dispatchDoubleTap()
+
+            verify(keyguardTouchHandlingInteractor).onDoubleClick()
+        }
+
+    @Test
+    @DisableSceneContainer
+    fun doubleTapWhenNotOnLockscreen_doesNotPutDeviceToSleep() =
+        testScope.runTest {
+            captureInteractionEventHandler()
+            whenever(statusBarStateController.state).thenReturn(SHADE)
+            whenever(statusBarStateController.isDozing).thenReturn(false)
+
+            dispatchDoubleTap()
+
+            verify(keyguardTouchHandlingInteractor, never()).onDoubleClick()
         }
 
     @Test
@@ -288,5 +332,49 @@ class NotificationShadeWindowViewTest : SysuiTestCase() {
     private fun captureInteractionEventHandler() {
         verify(underTest).setInteractionEventHandler(interactionEventHandlerCaptor.capture())
         interactionEventHandler = interactionEventHandlerCaptor.value
+    }
+
+    private fun dispatchDoubleTap() {
+        val firstTapDownTime = 1000L
+        val secondTapDownTime = firstTapDownTime + 150L
+        val events =
+            listOf(
+                MotionEvent.obtain(
+                    firstTapDownTime,
+                    firstTapDownTime,
+                    MotionEvent.ACTION_DOWN,
+                    100f,
+                    500f,
+                    0,
+                ),
+                MotionEvent.obtain(
+                    firstTapDownTime,
+                    firstTapDownTime + 50L,
+                    MotionEvent.ACTION_UP,
+                    100f,
+                    500f,
+                    0,
+                ),
+                MotionEvent.obtain(
+                    secondTapDownTime,
+                    secondTapDownTime,
+                    MotionEvent.ACTION_DOWN,
+                    105f,
+                    505f,
+                    0,
+                ),
+                MotionEvent.obtain(
+                    secondTapDownTime,
+                    secondTapDownTime + 50L,
+                    MotionEvent.ACTION_UP,
+                    105f,
+                    505f,
+                    0,
+                ),
+            )
+        events.forEach { event ->
+            interactionEventHandler.handleDispatchTouchEvent(event)
+            event.recycle()
+        }
     }
 }

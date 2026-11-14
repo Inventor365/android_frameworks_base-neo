@@ -49,10 +49,12 @@ import com.android.systemui.flags.FeatureFlagsClassic;
 import com.android.systemui.flags.Flags;
 import com.android.systemui.keyguard.KeyguardUnlockAnimationController;
 import com.android.systemui.keyguard.domain.interactor.DozeTouchInteractor;
+import com.android.systemui.keyguard.domain.interactor.KeyguardTouchHandlingInteractor;
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor;
 import com.android.systemui.keyguard.shared.model.Edge;
 import com.android.systemui.keyguard.shared.model.TransitionState;
 import com.android.systemui.keyguard.shared.model.TransitionStep;
+import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.scene.ui.view.WindowRootViewKeyEventHandler;
@@ -84,6 +86,8 @@ import com.android.systemui.util.time.SystemClock;
 import com.android.systemui.window.ui.BlurChoreographer;
 import com.android.systemui.window.ui.WindowRootViewBinder;
 import com.android.systemui.window.ui.viewmodel.WindowRootViewModel;
+
+import dagger.Lazy;
 
 import kotlinx.coroutines.CoroutineDispatcher;
 import kotlinx.coroutines.flow.Flow;
@@ -126,7 +130,10 @@ public class NotificationShadeWindowViewController implements Dumpable {
     private final KeyguardTransitionInteractor mKeyguardTransitionInteractor;
     private final GlanceableHubContainerController
             mGlanceableHubContainerController;
+    private final Lazy<KeyguardTouchHandlingInteractor> mKeyguardTouchHandlingInteractorLazy;
+    private final FalsingManager mFalsingManager;
     private GestureDetector mPulsingWakeupGestureHandler;
+    private GestureDetector mDoubleTapToSleepGestureHandler;
     private boolean mTouchActive;
     private boolean mTouchCancelled;
     private MotionEvent mDownEvent;
@@ -228,6 +235,8 @@ public class NotificationShadeWindowViewController implements Dumpable {
             ShadeStatusBarComponentsInteractor shadeStatusBarComponentsInteractor,
             DozeTouchInteractor dozeTouchInteractor,
             JavaAdapter javaAdapter,
+            Lazy<KeyguardTouchHandlingInteractor> keyguardTouchHandlingInteractorLazy,
+            FalsingManager falsingManager,
             EdgeLightViewController edgeLightViewController) {
         mLockscreenShadeTransitionController = transitionController;
         mFalsingCollector = falsingCollector;
@@ -258,6 +267,8 @@ public class NotificationShadeWindowViewController implements Dumpable {
         mQuickSettingsController = quickSettingsController;
         mMainDispatcher = mainDispatcher;
         mShadeStatusBarComponentsInteractor = shadeStatusBarComponentsInteractor;
+        mKeyguardTouchHandlingInteractorLazy = keyguardTouchHandlingInteractorLazy;
+        mFalsingManager = falsingManager;
 
         mDisableSubpixelTextTransitionListener = new DisableSubpixelTextTransitionListener(mView);
         bindBouncer(bouncerViewBinder);
@@ -385,6 +396,29 @@ public class NotificationShadeWindowViewController implements Dumpable {
         mStackScrollLayout = mView.findViewById(R.id.notification_stack_scroller);
         mPulsingWakeupGestureHandler = new GestureDetector(mView.getContext(),
                 mPulsingGestureListener);
+        if (!SceneContainerFlag.isEnabled()
+                && !mView.getResources().getBoolean(
+                        R.bool.long_press_keyguard_customize_lockscreen_enabled)) {
+            // The keyguard long-press view only consumes the touch stream when long-press
+            // handling is enabled. Otherwise it never receives the full gesture of a tap and
+            // cannot detect double taps itself, so detect them here, where the complete window
+            // touch stream is available (see handleDispatchTouchEvent).
+            mDoubleTapToSleepGestureHandler = new GestureDetector(mView.getContext(),
+                    new GestureDetector.SimpleOnGestureListener() {
+                        @Override
+                        public boolean onDoubleTap(MotionEvent event) {
+                            return true;
+                        }
+
+                        @Override
+                        public boolean onDoubleTapEvent(MotionEvent event) {
+                            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                                maybeHandleDoubleTapToSleep();
+                            }
+                            return true;
+                        }
+                    });
+        }
         mView.setLayoutInsetsController(mNotificationInsetsController);
         mView.setWindowRootViewKeyEventHandler(mWindowRootViewKeyEventHandler);
         if (mEdgeLightViewController != null) {
@@ -464,6 +498,9 @@ public class NotificationShadeWindowViewController implements Dumpable {
                 mFalsingCollector.onTouchEvent(ev);
                 if (!SceneContainerFlag.isEnabled()) {
                     mPulsingWakeupGestureHandler.onTouchEvent(ev);
+                    if (mDoubleTapToSleepGestureHandler != null) {
+                        mDoubleTapToSleepGestureHandler.onTouchEvent(ev);
+                    }
                 }
 
                 if (!SceneContainerFlag.isEnabled()
@@ -696,6 +733,25 @@ public class NotificationShadeWindowViewController implements Dumpable {
         }
 
         return false;
+    }
+
+    /**
+     * Puts the device to sleep when the user double taps the lock screen.
+     *
+     * Only acts in legacy mode (no scene container), on a fully shown keyguard that is awake and
+     * not showing the bouncer. The double tap enablement (secure setting, config, flags, quick
+     * settings visibility) is checked by KeyguardTouchHandlingInteractor.
+     */
+    private void maybeHandleDoubleTapToSleep() {
+        if (mStatusBarStateController.getState() != KEYGUARD
+                || mStatusBarStateController.isDozing()
+                || mPrimaryBouncerInteractor.isBouncerShowing()
+                || mAlternateBouncerInteractor.isVisibleState()
+                || mFalsingManager.isFalseDoubleTap()) {
+            return;
+        }
+
+        mKeyguardTouchHandlingInteractorLazy.get().onDoubleClick();
     }
 
     public NotificationShadeWindowView getView() {

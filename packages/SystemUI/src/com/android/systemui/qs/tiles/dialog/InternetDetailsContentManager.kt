@@ -282,6 +282,11 @@ constructor(
             contentView.requireViewById<ProgressBar>(R.id.wifi_searching_progress).apply {
                 visibility = View.VISIBLE
             }
+        if (isFlagEnabledAndInDialog) {
+            // The progress bar already looks like a divider when it is not showing any
+            // progress, so the layout's divider would just be a duplicated one.
+            contentView.findViewById<View>(R.id.divider)?.visibility = View.GONE
+        }
 
         // Background drawables
         entryBackgroundActive =

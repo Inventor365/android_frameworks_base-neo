@@ -302,6 +302,11 @@ constructor(
 
     /**
      * Determines whether a wakefulness event should start the "lock after screen timeout" timer.
+     *
+     * This must return `true` for every sleep reason where DeviceUnlockedInteractor expects a
+     * (delayed) lock, i.e. every reason that isn't locked immediately by design (sleep button,
+     * fold, lid close). If the timer isn't started for such a reason, the expected delayed lock
+     * never happens and the device remains unlocked indefinitely, even after waking up.
      */
     suspend fun wakefulnessStateTriggersDelayedLock(wakefulness: WakefulnessModel): Boolean {
         if (!wakefulness.isAsleep()) {
@@ -325,7 +330,19 @@ constructor(
             return true
         }
 
-        return false
+        // Reasons that lock immediately by design don't need the timer.
+        if (
+            wakefulness.lastSleepReason == WakeSleepReason.SLEEP_BUTTON ||
+                wakefulness.lastSleepReason == WakeSleepReason.FOLD ||
+                wakefulness.lastSleepReason == WakeSleepReason.LID_CLOSE
+        ) {
+            return false
+        }
+
+        // Any remaining reason should still (eventually) lock the device after the delay, to
+        // match the behavior of the legacy keyguard, which schedules a delayed lock for all of
+        // these reasons.
+        return true
     }
 
     companion object {

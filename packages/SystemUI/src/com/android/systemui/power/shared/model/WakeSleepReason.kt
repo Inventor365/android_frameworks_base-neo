@@ -85,7 +85,12 @@ enum class WakeSleepReason(
             return when (reason) {
                 PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON -> POWER_BUTTON
                 PowerManager.GO_TO_SLEEP_REASON_SLEEP_BUTTON -> SLEEP_BUTTON
-                PowerManager.GO_TO_SLEEP_REASON_TIMEOUT -> TIMEOUT
+                // Group inattentive sleep with timeout, matching
+                // WindowManagerPolicyConstants#translateSleepReasonToOffReason, so the delayed
+                // lock after sleeping also applies to inattentive sleep. Otherwise, the device
+                // would remain unlocked indefinitely after an inattentive sleep.
+                PowerManager.GO_TO_SLEEP_REASON_TIMEOUT,
+                PowerManager.GO_TO_SLEEP_REASON_INATTENTIVE -> TIMEOUT
                 PowerManager.GO_TO_SLEEP_REASON_DEVICE_FOLD -> FOLD
                 PowerManager.GO_TO_SLEEP_REASON_LID_SWITCH -> LID_CLOSE
                 else -> OTHER

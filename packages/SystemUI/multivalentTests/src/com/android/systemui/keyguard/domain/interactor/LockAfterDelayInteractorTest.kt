@@ -233,6 +233,66 @@ class LockAfterDelayInteractorTest : SysuiTestCase() {
         }
 
     @Test
+    fun test_lockTimerActiveAndElapses_onInattentiveSleep() =
+        testScope.runTest {
+            val user = kosmos.fakeUserRepository.asMainUser()
+            val state by collectValues(underTest.lockAfterDelayState)
+
+            captureBroadcastReceiver()
+
+            assertThat(state)
+                .isEqualTo(
+                    listOf(
+                        LockAfterDelayTimerState.INACTIVE // Default.
+                    )
+                )
+
+            fakeSettings.putIntForUser(
+                Settings.Secure.LOCK_SCREEN_LOCK_AFTER_TIMEOUT,
+                TEST_SCREEN_OFF_TIMEOUT_MS.toInt(),
+                user.id,
+            )
+            runCurrent()
+
+            kosmos.powerInteractor.setAsleepForTest(
+                sleepReason = PowerManager.GO_TO_SLEEP_REASON_INATTENTIVE
+            )
+            runCurrent()
+
+            verifyActiveLockTimerEntered()
+        }
+
+    @Test
+    fun test_lockTimerActiveAndElapses_onUnknownSleepReason() =
+        testScope.runTest {
+            val user = kosmos.fakeUserRepository.asMainUser()
+            val state by collectValues(underTest.lockAfterDelayState)
+
+            captureBroadcastReceiver()
+
+            assertThat(state)
+                .isEqualTo(
+                    listOf(
+                        LockAfterDelayTimerState.INACTIVE // Default.
+                    )
+                )
+
+            fakeSettings.putIntForUser(
+                Settings.Secure.LOCK_SCREEN_LOCK_AFTER_TIMEOUT,
+                TEST_SCREEN_OFF_TIMEOUT_MS.toInt(),
+                user.id,
+            )
+            runCurrent()
+
+            kosmos.powerInteractor.setAsleepForTest(
+                sleepReason = PowerManager.GO_TO_SLEEP_REASON_FORCE_SUSPEND
+            )
+            runCurrent()
+
+            verifyActiveLockTimerEntered()
+        }
+
+    @Test
     fun test_lockTimerActiveAndElapses_onDreaming() =
         testScope.runTest {
             kosmos.powerInteractor.setAwakeForTest(reason = PowerManager.WAKE_REASON_POWER_BUTTON)

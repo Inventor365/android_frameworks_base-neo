@@ -295,6 +295,34 @@ class DeviceUnlockedInteractorTest : SysuiTestCase() {
         }
 
     @Test
+    fun deviceUnlockStatus_isResetToFalse_whenDeviceGoesToSleep_unknownSleepReason_afterDelay() =
+        testScope.runTest {
+            val delay = 5000
+            setLockAfterScreenTimeout(delay)
+            val deviceUnlockStatus by collectLastValue(underTest.deviceUnlockStatus)
+
+            kosmos.biometricUnlockInteractor.setBiometricUnlockState(
+                unlockStateInt = BiometricUnlockController.MODE_DISMISS,
+                biometricUnlockSource = BiometricUnlockSource.FINGERPRINT_SENSOR,
+            )
+            runCurrent()
+            assertThat(deviceUnlockStatus?.isUnlocked).isTrue()
+
+            kosmos.powerInteractor.setAsleepForTest(
+                sleepReason = PowerManager.GO_TO_SLEEP_REASON_FORCE_SUSPEND
+            )
+            kosmos.fakeKeyguardRepository.lockAfterDelayState.value =
+                LockAfterDelayTimerState.RUNNING
+            runCurrent()
+            assertThat(deviceUnlockStatus?.isUnlocked).isTrue()
+
+            kosmos.fakeKeyguardRepository.lockAfterDelayState.value =
+                LockAfterDelayTimerState.ELAPSED
+            runCurrent()
+            assertThat(deviceUnlockStatus?.isUnlocked).isFalse()
+        }
+
+    @Test
     fun deviceUnlockStatus_whenDeviceGoesToSleep_thenWakesUpBeforeLockTimerElapses_isTrue() =
         testScope.runTest {
             setLockAfterScreenTimeout(5000)

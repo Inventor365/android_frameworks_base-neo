@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -104,6 +105,9 @@ constructor(
 
     private val composeView =
         ComposeView(context).apply {
+            setViewCompositionStrategy(
+                ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+            )
             repeatWhenAttached {
                 lifecycleScope.launch {
                     repeatOnLifecycle(Lifecycle.State.CREATED) {
@@ -143,13 +147,8 @@ constructor(
                 combine(
                         mediaCarouselInteractor.allowMediaOnLockscreen,
                         mediaCarouselInteractor.hasActiveMedia,
-                        mediaCarouselInteractor.isOnLockscreen,
-                    ) { allowMediaOnLockscreen, activeMedia, isOnLockscreen ->
-                        if (allowMediaOnLockscreen && isOnLockscreen) {
-                            activeMedia
-                        } else {
-                            false
-                        }
+                    ) { allowMediaOnLockscreen, activeMedia ->
+                        allowMediaOnLockscreen && activeMedia
                     }
                     .collect { isMediaVisibleOnLockscreen = it }
             }
@@ -189,6 +188,7 @@ constructor(
                 behavior =
                     MediaUiBehavior(
                         carouselVisibility = MediaCarouselVisibility.WhenAnyCardIsActive,
+                        isCarouselSizeAnimationEnabled = false,
                         isCarouselScrollFalseTouch = {
                             falsingSystem.isFalseTouch(Classifier.MEDIA_CAROUSEL_SWIPE)
                         },
@@ -233,20 +233,23 @@ constructor(
      */
     fun attachSinglePaneContainer(mediaView: MediaContainerView?) {
         SceneContainerFlag.assertInLegacyMode()
-        if (MediaControlsInComposeFlag.isEnabled) {
-            singlePaneContainer = mediaView
-            reattachHostView()
-            onMediaHostVisibilityChanged(isMediaVisibleOnLockscreen)
-        } else {
-            val needsListener = singlePaneContainer == null
-            singlePaneContainer = mediaView
-            if (needsListener) {
-                // On reinflation we don't want to add another listener
-                mediaHost.addVisibilityChangeListener(this::onMediaHostVisibilityChanged)
-            }
-            reattachHostView()
-            onMediaHostVisibilityChanged(mediaHost.visible)
+        val needsListener = singlePaneContainer == null
+        singlePaneContainer = mediaView
+        // The inflated media container starts visible, but the notification stack can retain
+        // a hidden zero-height view state. Ensure the first show updates that state.
+        mediaView?.setKeyguardVisibility(false)
+        if (!MediaControlsInComposeFlag.isEnabled && needsListener) {
+            // On reinflation we don't want to add another listener
+            mediaHost.addVisibilityChangeListener(this::onMediaHostVisibilityChanged)
         }
+        reattachHostView()
+        val isVisible =
+            if (MediaControlsInComposeFlag.isEnabled) {
+                isMediaVisibleOnLockscreen
+            } else {
+                mediaHost.visible
+            }
+        onMediaHostVisibilityChanged(isVisible)
 
         singlePaneContainer?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
@@ -261,10 +264,7 @@ constructor(
                 return
             }
             if (MediaControlsInComposeFlag.isEnabled) {
-                composeView.layoutParams.apply {
-                    height = ViewGroup.LayoutParams.WRAP_CONTENT
-                    width = ViewGroup.LayoutParams.MATCH_PARENT
-                }
+                updateComposeViewLayoutParams()
             } else {
                 mediaHost.hostView.layoutParams.apply {
                     height = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -298,11 +298,8 @@ constructor(
         if (activeContainer?.childCount == 0) {
             if (MediaControlsInComposeFlag.isEnabled) {
                 composeView.parent?.let { (it as? ViewGroup)?.removeView(composeView) }
+                updateComposeViewLayoutParams()
                 activeContainer.addView(composeView)
-                composeView.layoutParams.apply {
-                    height = ViewGroup.LayoutParams.WRAP_CONTENT
-                    width = ViewGroup.LayoutParams.MATCH_PARENT
-                }
             } else {
                 // Detach the hostView from its parent view if exists
                 mediaHost.hostView.parent?.let {
@@ -311,6 +308,20 @@ constructor(
                 activeContainer.addView(mediaHost.hostView)
             }
         }
+    }
+
+    private fun updateComposeViewLayoutParams() {
+        val layoutParams =
+            composeView.layoutParams
+                ?: ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+        composeView.layoutParams =
+            layoutParams.apply {
+                height = ViewGroup.LayoutParams.WRAP_CONTENT
+                width = ViewGroup.LayoutParams.MATCH_PARENT
+            }
     }
 
     fun isWithinMediaViewBounds(x: Int, y: Int): Boolean {

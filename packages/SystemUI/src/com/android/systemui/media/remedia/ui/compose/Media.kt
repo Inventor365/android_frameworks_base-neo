@@ -224,7 +224,14 @@ fun Media(
         presentationStyle = presentationStyle,
         behavior = behavior,
         onDismissed = onDismissed,
-        modifier = modifier,
+        modifier =
+            modifier.then(
+                if (location == Media.Location.LOCKSCREEN) {
+                    Modifier.heightIn(min = Media.DEFAULT_HEIGHT)
+                } else {
+                    Modifier
+                }
+            ),
         mediaSquishiness = mediaSquishiness,
         expansion = expansion,
     )
@@ -251,8 +258,18 @@ private fun CardCarousel(
     AnimatedVisibility(
         visible = viewModel.isCarouselVisible,
         modifier = modifier,
-        enter = expandVertically(expandFrom = Alignment.Top),
-        exit = shrinkVertically(shrinkTowards = Alignment.Top),
+        enter =
+            if (behavior.isCarouselSizeAnimationEnabled) {
+                expandVertically(expandFrom = Alignment.Top)
+            } else {
+                fadeIn()
+            },
+        exit =
+            if (behavior.isCarouselSizeAnimationEnabled) {
+                shrinkVertically(shrinkTowards = Alignment.Top)
+            } else {
+                fadeOut()
+            },
     ) {
         CardCarouselContent(
             viewModel = viewModel,
@@ -1828,6 +1845,8 @@ data class MediaUiBehavior(
     /** If false, carousel will not be scrollable and will only show the first item */
     val isCarouselScrollingEnabled: Boolean = true,
     val carouselVisibility: MediaCarouselVisibility = MediaCarouselVisibility.WhenNotEmpty,
+    /** If false, carousel visibility will fade without animating its measured height. */
+    val isCarouselSizeAnimationEnabled: Boolean = true,
     /**
      * If provided, this callback will be consulted at the beginning of each carousel scroll gesture
      * to see if the falsing system thinks that it's a false touch. If it then returns `true`, the

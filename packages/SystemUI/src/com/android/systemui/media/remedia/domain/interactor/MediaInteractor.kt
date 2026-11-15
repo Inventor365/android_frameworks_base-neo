@@ -41,7 +41,10 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.deviceentry.domain.interactor.DeviceEntryInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
+import com.android.systemui.keyguard.shared.model.Edge
 import com.android.systemui.keyguard.shared.model.KeyguardState
+import com.android.systemui.keyguard.shared.model.KeyguardState.DOZING
+import com.android.systemui.keyguard.shared.model.KeyguardState.GONE
 import com.android.systemui.media.controls.domain.pipeline.MediaDataProcessor
 import com.android.systemui.media.controls.domain.pipeline.getNotificationActions
 import com.android.systemui.media.controls.shared.model.MediaAction
@@ -55,6 +58,8 @@ import com.android.systemui.media.remedia.domain.model.MediaSessionModel
 import com.android.systemui.media.remedia.shared.model.MediaCardActionButtonLayout
 import com.android.systemui.media.remedia.shared.model.MediaColorScheme
 import com.android.systemui.media.remedia.shared.model.MediaSessionState
+import com.android.systemui.scene.shared.flag.SceneContainerFlag
+import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.NotificationLockscreenUserManager
@@ -62,6 +67,7 @@ import com.android.systemui.statusbar.policy.KeyguardStateController
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -162,7 +168,16 @@ constructor(
     override val allowMediaOnLockscreen: Boolean
         get() = repository.allowMediaOnLockscreen
 
-    override val isOnLockscreen: Flow<Boolean> = deviceEntryInteractor.isDeviceEntered.map { !it }
+    override val isOnLockscreen: Flow<Boolean> =
+        if (SceneContainerFlag.isEnabled) {
+            deviceEntryInteractor.isDeviceEntered.map { !it }
+        } else {
+            combine(
+                @Suppress("DEPRECATION")
+                keyguardTransitionInteractor.isFinishedIn(Scenes.Gone, GONE),
+                keyguardTransitionInteractor.isInTransition(Edge.create(to = DOZING)),
+            ) { isGone, isGoingToDozing -> !isGone || isGoingToDozing }
+        }
 
     init {
         if (Flags.mediaControlsInCompose() && !Flags.sceneContainer()) {

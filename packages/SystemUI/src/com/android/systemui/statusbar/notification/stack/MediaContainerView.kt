@@ -23,6 +23,9 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.util.Log
+import android.view.View
+import androidx.compose.ui.platform.ComposeView
+import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.notification.row.ExpandableView
 
@@ -39,6 +42,73 @@ class MediaContainerView(context: Context, attrs: AttributeSet?) : ExpandableVie
         updateResources()
     }
 
+    override fun getIntrinsicHeight(): Int {
+        if (visibility == GONE) {
+            return 0
+        }
+        val composeChildHeight =
+            if (childCount == 1 && getChildAt(0) is ComposeView) {
+                getChildAt(0).measuredHeight
+            } else {
+                0
+            }
+        val defaultHeight =
+            (Media.DEFAULT_HEIGHT.value * context.resources.displayMetrics.density).toInt()
+        val fallbackHeight =
+            if (childCount == 1 && getChildAt(0) is ComposeView) defaultHeight else 0
+        return maxOf(super.getIntrinsicHeight(), composeChildHeight, fallbackHeight)
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+
+        if (visibility != GONE && childCount == 1 && getChildAt(0) is ComposeView) {
+            val composeChild = getChildAt(0) as ComposeView
+            val minHeight = maxOf(composeChild.measuredHeight, intrinsicHeight)
+            if (minHeight > 0) {
+                if (composeChild.measuredHeight < minHeight) {
+                    val childWidthSpec =
+                        MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
+                    val childHeightSpec =
+                        MeasureSpec.makeMeasureSpec(minHeight, MeasureSpec.EXACTLY)
+                    composeChild.measure(childWidthSpec, childHeightSpec)
+                }
+                if (measuredHeight < minHeight) {
+                    setMeasuredDimension(measuredWidth, minHeight)
+                }
+            }
+        }
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+
+        if (visibility != GONE && childCount == 1 && getChildAt(0) is ComposeView) {
+            val composeChild = getChildAt(0) as ComposeView
+            val minHeight = maxOf(composeChild.measuredHeight, intrinsicHeight)
+            if (minHeight > 0) {
+                val width = right - left
+                if (composeChild.width != width || composeChild.height != minHeight) {
+                    composeChild.layout(0, 0, width, minHeight)
+                }
+                if (actualHeight < minHeight) {
+                    setActualHeight(minHeight, false)
+                }
+            }
+        }
+    }
+
+    override fun requestLayout() {
+        super.requestLayout()
+
+        if (visibility != GONE && childCount == 1 && getChildAt(0) is ComposeView) {
+            val targetHeight = intrinsicHeight
+            if (targetHeight > 0 && actualHeight != targetHeight) {
+                setActualHeight(targetHeight, false)
+            }
+        }
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration?) {
         super.onConfigurationChanged(newConfig)
         updateResources()
@@ -50,8 +120,9 @@ class MediaContainerView(context: Context, attrs: AttributeSet?) : ExpandableVie
     }
 
     public override fun updateClipping() {
-        if (clipHeight != actualHeight) {
-            clipHeight = actualHeight
+        val targetClip = if (actualHeight > 0) actualHeight else intrinsicHeight
+        if (clipHeight != targetClip) {
+            clipHeight = targetClip
         }
         invalidate()
     }
@@ -59,13 +130,17 @@ class MediaContainerView(context: Context, attrs: AttributeSet?) : ExpandableVie
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        val bounds = canvas.clipBounds
-        bounds.bottom = clipHeight
-        clipRect.set(bounds)
+        val effectiveClipHeight =
+            if (clipHeight > 0) clipHeight else actualHeight.takeIf { it > 0 } ?: intrinsicHeight
+        if (effectiveClipHeight > 0) {
+            val bounds = canvas.clipBounds
+            bounds.bottom = effectiveClipHeight
+            clipRect.set(bounds)
 
-        clipPath.reset()
-        clipPath.addRoundRect(clipRect, cornerRadius, cornerRadius, Path.Direction.CW)
-        canvas.clipPath(clipPath)
+            clipPath.reset()
+            clipPath.addRoundRect(clipRect, cornerRadius, cornerRadius, Path.Direction.CW)
+            canvas.clipPath(clipPath)
+        }
     }
 
     override fun performRemoveAnimation(

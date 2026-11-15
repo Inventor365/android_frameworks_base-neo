@@ -389,7 +389,8 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable {
             tunerService.addTunable(this, NETWORK_TRAFFIC_HIDEARROW);
 
             mConnectivityManager.registerNetworkCallback(mRequest, mNetworkCallback);
-            mConnectivityManager.registerDefaultNetworkCallback(mDefaultNetworkCallback);
+            mConnectivityManager.registerDefaultNetworkCallback(mDefaultNetworkCallback,
+                    mTrafficHandler);
 
             mConnectionAvailable = mConnectivityManager.getActiveNetwork() != null;
 

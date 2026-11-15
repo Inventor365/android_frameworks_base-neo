@@ -457,7 +457,7 @@ constructor(
                 if (isTransitioningToFullShade || isKeyguardState) {
                     lockscreenToShadeProgress
                 } else {
-                    panelExpansionFraction
+                    qsExpansion.coerceIn(0f, 1f)
                 }
             isTransitioningToFullShade -> lockscreenToShadeProgress
             else -> panelExpansionFraction

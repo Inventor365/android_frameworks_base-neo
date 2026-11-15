@@ -986,12 +986,10 @@
         <item name="android:windowCloseOnTouchOutside">true</item>
     </style>
 
-    <style name="ScreenRecord.Switch">
+    <style name="ScreenRecord.Switch" parent="@style/SettingslibSwitchStyle.Expressive">
         <item name="android:textAppearance">@style/TextAppearance.ScreenRecord.SwitchLabel</item>
         <item name="android:switchMinWidth">52dp</item>
         <item name="android:minHeight">48dp</item>
-        <item name="android:track">@drawable/settingslib_switch_track</item>
-        <item name="android:thumb">@drawable/settingslib_switch_thumb</item>
     </style>
 
     <style name="Theme.SystemUI.Dialog.ScreenCapture">

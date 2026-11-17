@@ -1753,8 +1753,8 @@ final class UiModeManagerService extends SystemService {
         int callingUserId = UserHandle.getUserId(callingUid);
         final long ident = Binder.clearCallingIdentity();
         try {
-            return getContext().getPackageManager().getPackageUidAsUser(packageName,
-                    callingUserId) == callingUid;
+            return UserHandle.isSameAppIdWithPcc(getContext().getPackageManager()
+                    .getPackageUidAsUser(packageName, callingUserId), callingUid);
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         } finally {

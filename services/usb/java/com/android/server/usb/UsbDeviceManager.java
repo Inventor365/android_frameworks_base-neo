@@ -2360,9 +2360,14 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
                  */
                 setUsbConfig(oemFunctions);
 
-                if (mBootCompleted
-                        && (isUsbDataTransferActive(
-                                UsbManager.usbFunctionsFromString(functions)))) {
+                long appliedFunctions;
+                try {
+                    appliedFunctions = UsbManager.usbFunctionsFromString(functions);
+                } catch (IllegalArgumentException e) {
+                    // Vendor compositions like diag aren't framework functions
+                    appliedFunctions = UsbManager.FUNCTION_NONE;
+                }
+                if (mBootCompleted && isUsbDataTransferActive(appliedFunctions)) {
                     // Start up dependent services.
                     updateUsbStateBroadcastIfNeeded(getAppliedFunctions(mCurrentFunctions));
                 }

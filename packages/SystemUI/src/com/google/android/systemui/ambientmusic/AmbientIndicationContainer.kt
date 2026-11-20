@@ -169,12 +169,7 @@ open class AmbientIndicationContainer(context: Context, attrs: AttributeSet) :
         mTempTextViewExtended = findViewById(R.id.ambient_indication_text_extended_temp)
 
         val constraintSet = ConstraintSet()
-        val isUdfpsSupported = mKeyguardUpdateMonitor?.isUdfpsSupported() ?: false
-        if (isUdfpsSupported) {
-            constraintSet.load(context, R.xml.ambient_indication_inner_downwards)
-        } else {
-            constraintSet.load(context, R.xml.ambient_indication_inner_upwards)
-        }
+        constraintSet.load(context, R.xml.ambient_indication_inner_upwards)
         if (mEnabledExtendedInteraction && mDockedTopIcon.visibility == View.GONE) {
             constraintSet.clear(R.id.ambient_indication_info_container, ConstraintSet.TOP)
             constraintSet.clear(R.id.ambient_indication_info_container, ConstraintSet.BOTTOM)

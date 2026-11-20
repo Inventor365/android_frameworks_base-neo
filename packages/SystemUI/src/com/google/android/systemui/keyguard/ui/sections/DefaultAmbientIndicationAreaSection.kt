@@ -57,56 +57,28 @@ constructor(
             R.id.ambient_indication_container,
             ConstraintLayout.LayoutParams.MATCH_PARENT,
         )
-        if (keyguardUpdateMonitor.isUdfpsSupported()) {
-            constraintSet.constrainHeight(R.id.ambient_indication_container, 0)
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.TOP,
-                R.id.device_entry_icon_view,
-                ConstraintSet.BOTTOM,
-            )
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.BOTTOM,
-                R.id.keyguard_indication_area,
-                ConstraintSet.TOP,
-            )
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.START,
-                ConstraintSet.PARENT_ID,
-                ConstraintSet.START,
-            )
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.END,
-                ConstraintSet.PARENT_ID,
-                ConstraintSet.END,
-            )
-        } else {
-            constraintSet.constrainHeight(
-                R.id.ambient_indication_container,
-                ConstraintSet.WRAP_CONTENT,
-            )
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.BOTTOM,
-                R.id.device_entry_icon_view,
-                ConstraintSet.TOP,
-            )
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.START,
-                ConstraintSet.PARENT_ID,
-                ConstraintSet.START,
-            )
-            constraintSet.connect(
-                R.id.ambient_indication_container,
-                ConstraintSet.END,
-                ConstraintSet.PARENT_ID,
-                ConstraintSet.END,
-            )
-        }
+        constraintSet.constrainHeight(
+            R.id.ambient_indication_container,
+            ConstraintSet.WRAP_CONTENT,
+        )
+        constraintSet.connect(
+            R.id.ambient_indication_container,
+            ConstraintSet.BOTTOM,
+            R.id.device_entry_icon_view,
+            ConstraintSet.TOP,
+        )
+        constraintSet.connect(
+            R.id.ambient_indication_container,
+            ConstraintSet.START,
+            ConstraintSet.PARENT_ID,
+            ConstraintSet.START,
+        )
+        constraintSet.connect(
+            R.id.ambient_indication_container,
+            ConstraintSet.END,
+            ConstraintSet.PARENT_ID,
+            ConstraintSet.END,
+        )
     }
 
     override fun bindData(constraintLayout: ConstraintLayout) {

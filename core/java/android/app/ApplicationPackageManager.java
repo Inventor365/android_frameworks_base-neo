@@ -1373,7 +1373,11 @@ public class ApplicationPackageManager extends PackageManager {
             if (parceledList == null) {
                 return Collections.emptyList();
             }
-            return parceledList.getList();
+            List<PackageInfo> res = parceledList.getList();
+            if (shouldHideManagedPackages()) {
+                res.removeIf(pi -> pi != null && isManagedPackage(pi.packageName));
+            }
+            return res;
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -1475,9 +1479,9 @@ public class ApplicationPackageManager extends PackageManager {
                 return Collections.emptyList();
             }
 
-            List<PackageInfo> res = parceledList.getList();
+            List<ApplicationInfo> res = parceledList.getList();
             if (shouldHideManagedPackages()) {
-                res.removeIf(pi -> pi != null && isManagedPackage(pi.packageName));
+                res.removeIf(ai -> ai != null && isManagedPackage(ai.packageName));
             }
             return res;
         } catch (RemoteException e) {
@@ -1714,11 +1718,7 @@ public class ApplicationPackageManager extends PackageManager {
             if (parceledList == null) {
                 return Collections.emptyList();
             }
-            List<ApplicationInfo> res = parceledList.getList();
-            if (shouldHideManagedPackages()) {
-                res.removeIf(ai -> ai != null && isManagedPackage(ai.packageName));
-            }
-            return res;
+            return parceledList.getList();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

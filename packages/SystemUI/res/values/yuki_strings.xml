@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Yuki Charging Service, Power Profile and charging indication strings (peridot). -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Indication on the keyguard that is shown when the device is charging fast (2A - 8A) -->
+    <string name="keyguard_indication_fast_maybe_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Charging Fast maybe? • Full in <xliff:g id="charging_time_left" example="4 hr, 2 min">%1$s</xliff:g></string>
+    <string name="keyguard_plugged_in_fast_maybe_charging"><xliff:g id="percentage">%s</xliff:g> • Charging Fast maybe?</string>
+
+    <!-- Indication on the keyguard that is shown when the device is superfast charging (> 8A) -->
+    <string name="keyguard_indication_superfast_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Yuki\'s Superfast Charge • Full in <xliff:g id="charging_time_left" example="4 hr, 2 min">%1$s</xliff:g></string>
+    <string name="keyguard_plugged_in_superfast_charging"><xliff:g id="percentage">%s</xliff:g> • Yuki\'s Superfast Charge</string>
+
+    <!-- Power Profile QS Tile & Dialog -->
+    <string name="powerprofile_title">Power Profile</string>
+    <string name="powerprofile_default">Balanced</string>
+    <string name="powerprofile_performance">Performance</string>
+    <string name="powerprofile_gaming">Gaming Mode</string>
+    <string name="powerprofile_battery">Battery Saver</string>
+    <string name="powerprofile_auto">Auto</string>
+    <string name="powerprofile_unknown">Unknown</string>
+    <string name="powerprofile_summary">Choose a system performance profile</string>
+
+    <string name="powerprofile_default_desc">Balanced performance and battery life for everyday use.</string>
+    <string name="powerprofile_battery_desc">Lowers performance headroom and disables high touch sampling to stretch battery life.</string>
+    <string name="powerprofile_performance_desc">Raises CPU/GPU headroom and enables high touch sampling. Disables Battery Saver while active.</string>
+    <string name="powerprofile_gaming_desc">Maximum sustained performance and touch responsiveness for games. Disables Battery Saver while active.</string>
+    <string name="powerprofile_auto_desc">Automatically switches performance and thermal behavior based on what you\'re doing, and steps down further once the screen turns off. Recommended for most people.</string>
+
+    <string name="power_chip_htsr_on">HTSR: On</string>
+    <string name="power_chip_htsr_off">HTSR: Off</string>
+    <string name="power_htsr_apply_failed">Couldn\'t change high touch sample rate</string>
+    <string name="power_profile_apply_failed">Couldn\'t apply power profile</string>
+    <string name="power_tile_disabled_toast">Power Profile is turned off in Settings</string>
+    <string name="power_tile_disabled_subtitle">Disabled</string>
+
+    <string name="perf_mode_title">Performance Mode</string>
+    <string name="perf_mode_notification">Performance mode is active. Tap to open settings.</string>
+    <string name="gaming_mode_notification">Gaming mode is active. Tap to open settings.</string>
+    <string name="balanced_mode_notification">Balanced mode is active. Tap to open settings.</string>
+    <string name="battery_mode_notification">Battery Saver mode is active. Tap to open settings.</string>
+    <string name="auto_mode_notification">Auto mode is active. Tap to open settings.</string>
+    <string name="done_button">Done</string>
+
+    <!-- Yuki Charging Service QS Tile & Dialog -->
+    <string name="charging_control_title">Yuki Charging Service</string>
+    <string name="charging_control_summary">Choose a charging mode</string>
+    <string name="charging_control_dialog_subtitle">Choose a charging mode</string>
+    <string name="charging_control_tile_slow">Slow</string>
+    <string name="charging_control_tile_fast">Fast</string>
+    <string name="charging_control_tile_superfast">Superfast</string>
+    <string name="charging_control_slow_desc">Restricts charging current to reduce battery temperature and maximize lifespan.</string>
+    <string name="charging_control_fast_desc">Balanced fast charging with standard system thermal regulation.</string>
+    <string name="charging_control_superfast_desc">Maximum throughput bypassing software limits for rapid charging.</string>
+
+</resources>

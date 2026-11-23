@@ -74,6 +74,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
@@ -1882,6 +1883,7 @@ private fun ContentScope.SecondaryAction(
 }
 
 /** The content of a [SecondaryAction]. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SecondaryActionContent(
     viewModel: MediaSecondaryActionViewModel,
@@ -1899,40 +1901,44 @@ private fun SecondaryActionContent(
             .padding(13.dp)
     when (viewModel) {
         is MediaSecondaryActionViewModel.Action ->
-            when (viewModel.icon) {
-                is Icon.Resource ->
-                    PlatformIconButton(
-                        onClick = {
-                            if (viewModel.onClick != null) {
-                                buttonCoordinates?.let { coords ->
-                                    rippleController?.playRipple(coords, scope)
-                                }
-                                viewModel.onClick.invoke()
-                            }
-                        },
-                        modifier = sharedModifier.sysuiResTag(resId),
-                        enabled = viewModel.onClick != null,
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor),
-                        iconResource = viewModel.icon.resId,
-                        contentDescription = viewModel.icon.contentDescription?.load(),
-                    )
+            CompositionLocalProvider(LocalRippleConfiguration provides null) {
+		        when (viewModel.icon) {
+		            is Icon.Resource ->
+		                PlatformIconButton(
+		                    onClick = {
+		                        if (viewModel.onClick != null) {
+		                            buttonCoordinates?.let { coords ->
+		                                rippleController?.playRipple(coords, scope)
+		                            }
+		                            viewModel.onClick.invoke()
+		                        }
+		                    },
+		                    modifier = sharedModifier.sysuiResTag(resId),
+		                    enabled = viewModel.onClick != null,
+		                    shape = RectangleShape,
+		                    colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor),
+		                    iconResource = viewModel.icon.resId,
+		                    contentDescription = viewModel.icon.contentDescription?.load(),
+		                )
 
-                is Icon.Loaded ->
-                    PlatformIconButton(
-                        onClick = {
-                            if (viewModel.onClick != null) {
-                                buttonCoordinates?.let { coords ->
-                                    rippleController?.playRipple(coords, scope)
-                                }
-                                viewModel.onClick.invoke()
-                            }
-                        },
-                        modifier = sharedModifier.sysuiResTag(resId),
-                        enabled = viewModel.onClick != null,
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor),
-                        iconDrawable = viewModel.icon.drawable,
-                        contentDescription = viewModel.icon.contentDescription?.load(),
-                    )
+		            is Icon.Loaded ->
+		                PlatformIconButton(
+		                    onClick = {
+		                        if (viewModel.onClick != null) {
+		                            buttonCoordinates?.let { coords ->
+		                                rippleController?.playRipple(coords, scope)
+		                            }
+		                            viewModel.onClick.invoke()
+		                        }
+		                    },
+		                    modifier = sharedModifier.sysuiResTag(resId),
+		                    enabled = viewModel.onClick != null,
+		                    shape = RectangleShape,
+		                    colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor),
+		                    iconDrawable = viewModel.icon.drawable,
+		                    contentDescription = viewModel.icon.contentDescription?.load(),
+		                )
+		        }
             }
 
         is MediaSecondaryActionViewModel.ReserveSpace -> Spacer(modifier = sharedModifier)

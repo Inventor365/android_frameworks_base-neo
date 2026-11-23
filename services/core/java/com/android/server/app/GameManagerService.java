@@ -2382,6 +2382,7 @@ public final class GameManagerService extends IGameManagerService.Stub {
         public void onChange(boolean selfChange, Uri uri) {
             String newValue = Settings.Secure.getStringForUser(mContentResolver,
                     Settings.Secure.GAME_OVERLAY, UserHandle.USER_CURRENT);
+            if (TextUtils.isEmpty(newValue)) return;
             // We write key and value of the device_config property as a single string
             // from our GameSpace.
             // ';;' is the separator betweeen key and value.

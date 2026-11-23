@@ -136,7 +136,7 @@ constructor(
                         .nestedScroll(nestedScrollConnection),
                 contentPadding = contentPadding,
                 pageSpacing = if (pages.size > 1) InterPageSpacing else 0.dp,
-                beyondViewportPageCount = 1,
+                beyondViewportPageCount = (pages.size - 1).coerceAtLeast(0),
                 verticalAlignment = Alignment.Top,
             ) {
                 val page = pages[it]

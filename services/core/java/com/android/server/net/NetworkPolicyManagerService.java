@@ -1537,10 +1537,20 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                         addUidPolicy(uid, POLICY_REJECT_ALL);
                     }
                     updateRestrictionRulesForUidUL(uid);
+                    final int pccUid = getPccUid(intent.getData().getSchemeSpecificPart(),
+                            UserHandle.getUserId(uid));
+                    if (pccUid != Process.INVALID_UID) updateRestrictionRulesForUidUL(pccUid);
                 }
             }
         }
     };
+
+    private static int getPccUid(String packageName, int userId) {
+        final var ps = LocalServices.getService(PackageManagerInternal.class)
+                .getPackageStateInternal(packageName);
+        final int pccId = ps == null ? Process.INVALID_UID : ps.getPccId();
+        return pccId == Process.INVALID_UID ? pccId : UserHandle.getUid(userId, pccId);
+    }
 
     final private BroadcastReceiver mUidRemovedReceiver = new BroadcastReceiver() {
         @Override
@@ -5600,6 +5610,8 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                         }
                         final int uid = UserHandle.getUid(userId, appId);
                         consumer.accept(uid);
+                        final int pccUid = getPccUid(androidPackage.getPackageName(), userId);
+                        if (pccUid != Process.INVALID_UID) consumer.accept(pccUid);
                     }, userId);
                 }
             } finally {
@@ -5647,6 +5659,10 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
 
     @GuardedBy("mUidRulesFirstLock")
     private boolean isUidValidForRulesUL(int uid) {
+        // PCC sandboxes reach the network on behalf of apps that hold no INTERNET permission
+        if (Process.isPrivateComputeCoreUid(uid)) {
+            return UserHandle.isApp(Process.getAppUidForPrivateComputeCoreUid(uid));
+        }
         return UserHandle.isApp(uid) && hasInternetPermissionUL(uid);
     }
 

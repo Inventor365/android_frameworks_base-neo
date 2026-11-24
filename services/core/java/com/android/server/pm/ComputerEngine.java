@@ -2603,6 +2603,13 @@ public class ComputerEngine implements Computer {
         return false;
     }
 
+    // Internal ROM-only service packages that third-party apps have no legitimate
+    // reason to query; system callers (BiometricService, Settings, SystemUI, shell)
+    // and the package itself bypass this check via isCallerSystem/isCallerSameApp.
+    private static final java.util.Set<String> HIDDEN_ROM_PACKAGES = java.util.Set.of(
+            "co.aospa.sense"
+    );
+
     private final boolean shouldFilterApplicationCustom(
             @Nullable PackageStateInternal ps, int callingUid, int userId) {
         if (!isBootCompleted()) return false;
@@ -2618,6 +2625,9 @@ public class ComputerEngine implements Computer {
                 // if the caller is the current default home, skip
                 || isCallerHome(callingUid, userId)) {
             return false;
+        }
+        if (HIDDEN_ROM_PACKAGES.contains(packageName)) {
+            return true;
         }
         // if the target is included in Settings.Secure.HIDE_APPLIST, do filter
         if (com.android.internal.util.neoteric.HideAppListUtils.shouldHideAppList(

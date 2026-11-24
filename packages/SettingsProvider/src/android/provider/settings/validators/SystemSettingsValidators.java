@@ -295,5 +295,7 @@ public class SystemSettingsValidators {
         VALIDATORS.put(System.ADVANCED_REBOOT, BOOLEAN_VALIDATOR);
         VALIDATORS.put(System.INCALL_FEEDBACK_VIBRATE, BOOLEAN_VALIDATOR);
         VALIDATORS.put(System.NOTIFICATION_SOUND_VIB_SCREEN_ON, BOOLEAN_VALIDATOR);
+        VALIDATORS.put("spoof_pif_enabled", BOOLEAN_VALIDATOR);
+        VALIDATORS.put("spoof_trickystore_enabled", BOOLEAN_VALIDATOR);
     }
 }

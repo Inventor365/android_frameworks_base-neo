@@ -14135,6 +14135,114 @@ public final class Settings {
         @Readable
         public static final String VBOOT_HASH = "vboot_hash";
 
+        /**
+         * Per-apps device spoofing
+         * @hide
+         */
+        @Readable
+        public static final String PER_APPS_DEVICE_SPOOF = "per_apps_device_spoof";
+
+        /**
+         * Custom device spoof profiles for per-app spoofing
+         * @hide
+         */
+        @Readable
+        public static final String CUSTOM_SPOOF_PROFILES = "custom_spoof_profiles";
+
+        /**
+         * @hide
+         */
+        @Readable
+        public static final String PER_APPS_DEVICE_SPOOF_ENABLED = "per_apps_device_spoof_enabled";
+
+        /**
+         * @hide
+         */
+        @Readable
+        public static final String PER_APPS_DEVICE_SPOOF_CACHE = "per_apps_device_spoof_cache";
+
+        /**
+         * Whether advanced app spoofing (GPU/CPU model spoofing) is enabled
+         * @hide
+         */
+        @Readable
+        public static final String ADVANCED_APP_SPOOF_ENABLED = "advanced_app_spoof_enabled";
+
+        /**
+         * JSON configuration for advanced app spoofing (package -> GPU/CPU profiles)
+         * @hide
+         */
+        @Readable
+        public static final String ADVANCED_APP_SPOOF_CONFIG = "advanced_app_spoof_config";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_PIF_CONFIG = "spoof_pif_config";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_PIF_PHOTOS = "spoof_pif_photos";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_GAMEPROPS_CONFIG = "spoof_gameprops_config";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_TRICKYSTORE_TARGET = "spoof_trickystore_target";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_TRICKYSTORE_KEYBOX = "spoof_trickystore_keybox";
+
+        /** @hide */
+        public static final String SPOOF_DUCK_RKP_ENABLED = "spoof_duck_rkp_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_TRICKYSTORE_PATCH = "spoof_trickystore_patch";
+
+        /**
+         * Whether to use Pixel Props spoofing
+         * @hide
+         */
+        @Readable
+        public static final String PI_PP_SPOOF = "pi_pp_spoof";
+
+        /**
+         * Whether to use Tensor spoof for google apps
+         * @hide
+         */
+        @Readable
+        public static final String PI_TENSOR_SPOOF = "pi_tensor_spoof";
+
+        /**
+         * Whether to use PIF spoof for Play Store
+         * @hide
+         */
+        @Readable
+        public static final String PI_VENDING_SPOOF = "pi_vending_spoof";
+
+        /**
+         * Whether to spoof Google Photos as Pixel XL
+         * @hide
+         */
+        @Readable
+        public static final String PI_PHOTOS_SPOOF = "pi_photos_spoof";
+
+        /**
+         * Whether to spoof Snapchat
+         * @hide
+         */
+        @Readable
+        public static final String PI_SNAPCHAT_SPOOF = "pi_snapchat_spoof";
+
 	/**
          * Control whether to hide ADB and Developer settings enable status.
          * @hide

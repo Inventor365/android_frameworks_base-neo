@@ -48,9 +48,9 @@ import android.system.keystore2.ResponseCode;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.PropImitationHooks;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -91,6 +91,10 @@ import java.util.NoSuchElementException;
 
 import javax.crypto.SecretKey;
 
+import android.security.pif.PlayIntegritySpoofService;
+import android.security.trickystore.TrickyStoreService;
+import android.security.trickystore.CertificateHacker;
+
 /**
  * A java.security.KeyStore interface for the Android KeyStore. An instance of
  * it can be created via the {@link java.security.KeyStore#getInstance(String)
@@ -119,6 +123,8 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     // Defined in RFC 8410.
     private static final String ED25519_OID = "1.3.101.112";
+
+    private static final ThreadLocal<Boolean> sInHack = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     @Override
     public Key engineGetKey(String alias, char[] password) throws NoSuchAlgorithmException,
@@ -182,10 +188,14 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
-        PropImitationHooks.onEngineGetCertificateChain();
+        if (PlayIntegritySpoofService.shouldBlockCertificateChain()) {
+            throw new UnsupportedOperationException();
+        }
 
-        KeyEntryResponse response = getKeyMetadata(alias);
+        return getCertificateChain(alias, getKeyMetadata(alias));
+    }
 
+    private Certificate[] getCertificateChain(String alias, KeyEntryResponse response) {
         if (response == null || response.metadata.certificate == null) {
             return null;
         }
@@ -215,7 +225,7 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
         caList[0] = leaf;
 
-        return caList;
+        return hackCertificateChainIfNeeded(alias, response.metadata.key, caList);
     }
 
     @Override
@@ -228,7 +238,12 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
         byte[] encodedCert = response.metadata.certificate;
         if (encodedCert != null) {
-            return toCertificate(encodedCert);
+            X509Certificate leaf = toCertificate(encodedCert);
+            if (leaf == null || leaf.getExtensionValue("1.3.6.1.4.1.11129.2.1.17") == null) {
+                return leaf;
+            }
+            Certificate[] chain = getCertificateChain(alias, response);
+            return chain != null && chain.length > 0 ? chain[0] : leaf;
         }
 
         encodedCert = response.metadata.certificateChain;
@@ -270,6 +285,59 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
             Log.w(NAME, "Cannot read MGF1 Digest setter flag value", e);
             return false;
         }
+    }
+
+    private Certificate[] hackCertificateChainIfNeeded(
+            String alias, KeyDescriptor key, Certificate[] chain) {
+        if (key == null || chain == null || chain.length == 0
+                || "TrickyStoreTeeCheck".equals(alias)
+                || "trickystore_attestation_key".equals(alias)) {
+            return chain;
+        }
+        if (sInHack.get()) {
+            return chain;
+        }
+        sInHack.set(Boolean.TRUE);
+        try {
+            TrickyStoreService service = TrickyStoreService.getInstance();
+            if (!service.hasKeyboxes()) {
+                return chain;
+            }
+
+            // The SPI executes inside the requesting app process. Binder's
+            // calling UID can refer to an unrelated nested Binder transaction.
+            int callingUid = android.os.Process.myUid();
+            if (android.app.ActivityThread.getPackageManager() == null) {
+                return chain;
+            }
+            String[] packages = android.app.ActivityThread.getPackageManager()
+                    .getPackagesForUid(callingUid);
+
+            if (service.needHack(callingUid, packages)) {
+                Certificate[] hackedChain = CertificateHacker.hackCertificateChain(chain, packages);
+                if (hackedChain != null) {
+                    if (hackedChain != chain) {
+                        // Also persist replacements for keys created before this code
+                        // ran or before a keybox change. Otherwise each read signs the
+                        // original leaf again and returns different ECDSA bytes.
+                        ByteArrayOutputStream ca = new ByteArrayOutputStream();
+                        for (int i = 1; i < hackedChain.length; i++) {
+                            ca.write(hackedChain[i].getEncoded());
+                        }
+                        mKeyStore.updateSubcomponents(key, hackedChain[0].getEncoded(),
+                                hackedChain.length > 1 ? ca.toByteArray() : null);
+                        Log.d(TAG, "TrickyStore: Updated certificate chain for uid="
+                                + callingUid);
+                    }
+                    return hackedChain;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "TrickyStore: Failed to hack certificate chain", e);
+        } finally {
+            sInHack.set(Boolean.FALSE);
+        }
+        return chain;
     }
 
     @Override
@@ -1260,8 +1328,17 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
                     return d.alias;
                 }
             } else if (response.metadata.certificateChain != null && caAlias == null) {
-                if (Arrays.equals(response.metadata.certificateChain, targetCertBytes)) {
-                    caAlias =  d.alias;
+                final Collection<X509Certificate> caChain =
+                        toCertificates(response.metadata.certificateChain);
+                if (!caChain.isEmpty()) {
+                    final X509Certificate firstCert = caChain.iterator().next();
+                    try {
+                        if (Arrays.equals(firstCert.getEncoded(), targetCertBytes)) {
+                            caAlias = d.alias;
+                        }
+                    } catch (CertificateEncodingException e) {
+                        Log.w(TAG, "Failed to encode certificate while looking up alias", e);
+                    }
                 }
             }
         }

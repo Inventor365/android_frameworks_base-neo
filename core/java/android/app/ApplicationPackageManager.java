@@ -94,6 +94,10 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
@@ -145,6 +149,7 @@ import com.android.internal.os.ApplicationSharedMemory;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.pm.RoSystemFeatures;
 import com.android.internal.util.UserIcons;
+import com.android.internal.util.custom.PixelPropsUtils;
 
 import dalvik.system.VMRuntime;
 
@@ -849,7 +854,8 @@ public class ApplicationPackageManager extends PackageManager {
                 }
             };
 
-    private static final String[] featuresPixel = {
+
+    private static final Set<String> FEATURES_PIXEL = Set.of(
             "com.google.android.apps.photos.PIXEL_2019_PRELOAD",
             "com.google.android.apps.photos.PIXEL_2019_MIDYEAR_PRELOAD",
             "com.google.android.apps.photos.PIXEL_2018_PRELOAD",
@@ -864,40 +870,241 @@ public class ApplicationPackageManager extends PackageManager {
             "com.google.android.feature.PIXEL_EXPERIENCE",
             "com.google.android.feature.GOOGLE_BUILD",
             "com.google.android.feature.GOOGLE_EXPERIENCE"
-    };
+    );
 
-    private static final String[] featuresTensor = {
-            "com.google.android.feature.PIXEL_2026_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2026_MIDYEAR_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2025_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2025_MIDYEAR_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2024_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2024_MIDYEAR_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2023_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2023_MIDYEAR_EXPERIENCE",
+    private static final Set<String> FEATURES_PIXEL_OTHERS = Set.of(
+            "com.google.android.feature.ASI",
+            "com.google.android.feature.ANDROID_ONE_EXPERIENCE",
+            "com.google.android.feature.GOOGLE_FI_BUNDLED",
+            "com.google.android.feature.LILY_EXPERIENCE",
+            "com.google.android.feature.TURBO_PRELOAD",
+            "com.google.android.feature.WELLBEING",
+            "com.google.android.feature.ZERO_TOUCH",
+            "com.google.android.feature.NEXT_GENERATION_ASSISTANT",
+            "com.google.android.feature.PIXEL_SAFETY_MSCP",
+            "com.google.android.feature.PREMIER_TIER",
+            "com.google.android.feature.D2D_CABLE_MIGRATION_FEATURE",
+            "com.google.android.feature.EXCHANGE_6_2",
+            "com.google.android.feature.DREAMLINER",
+            "com.google.android.feature.AER_OPTIMIZED",
+            "com.google.android.feature.ADAPTIVE_CHARGING"
+    );
+
+    private static final Set<String> FEATURES_TENSOR = Set.of(
+            "com.google.android.feature.PIXEL_2021_EXPERIENCE",
             "com.google.android.feature.PIXEL_2022_EXPERIENCE",
             "com.google.android.feature.PIXEL_2022_MIDYEAR_EXPERIENCE",
-            "com.google.android.feature.PIXEL_2021_EXPERIENCE"
-    };
+            "com.google.android.feature.PIXEL_2023_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2023_MIDYEAR_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2024_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2024_MIDYEAR_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2025_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2025_MIDYEAR_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2026_EXPERIENCE",
+            "com.google.android.feature.PIXEL_2026_MIDYEAR_EXPERIENCE",
+            "com.google.android.apps.photos.PIXEL_2021_PRELOAD",
+            "com.google.android.apps.photos.PIXEL_2022_PRELOAD",
+            "com.google.android.apps.photos.PIXEL_2023_PRELOAD",
+            "com.google.android.apps.photos.PIXEL_2024_PRELOAD",
+            "com.google.android.apps.photos.PIXEL_2025_PRELOAD",
+            "com.google.android.apps.photos.PIXEL_2026_PRELOAD",
+            "com.google.android.feature.GOOGLE_EXPERIENCE",
+            "com.google.android.feature.PIXEL_EXPERIENCE",
+            "com.google.android.feature.GOOGLE_BUILD",
+            "com.google.android.feature.MAGIC_ERASER",
+            "com.google.android.feature.MAGIC_EDITOR",
+            "com.google.android.feature.BEST_TAKE",
+            "com.google.android.feature.AUDIO_MAGIC_ERASER",
+            "com.google.android.feature.VIDEO_BOOST",
+            "com.google.android.feature.NIGHT_SIGHT_VIDEO",
+            "com.google.android.feature.ZOOM_ENHANCE",
+            "com.google.android.feature.ADD_ME",
+            "com.google.android.feature.REIMAGINE",
+            "com.google.android.feature.AUTO_FRAME",
+            "com.google.android.feature.SUPER_RES_ZOOM",
+            "com.google.android.feature.GEMINI_NANO",
+            "com.google.android.feature.AICORE",
+            "com.google.android.feature.PIXEL_SCREENSHOTS",
+            "com.google.android.feature.PIXEL_STUDIO",
+            "com.google.android.feature.CALL_NOTES",
+            "com.google.android.feature.CIRCLE_TO_SEARCH",
+            "com.google.android.feature.LIVE_TRANSLATE",
+            "com.google.android.feature.NOW_PLAYING",
+            "com.google.android.feature.RECORDER_SUMMARIZE",
+            "com.google.android.feature.CLEAR_CALLING",
+            "com.google.android.feature.DIRECT_MY_CALL",
+            "com.google.android.feature.HOLD_FOR_ME",
+            "com.google.android.feature.CALL_SCREENING",
+            "com.google.android.feature.WAIT_TIMES",
+            "com.google.android.feature.PHOTO_UNBLUR",
+            "com.google.android.feature.CINEMATIC_WALLPAPER",
+            "com.google.android.feature.AI_WALLPAPER",
+            "com.google.android.feature.EMOJI_WALLPAPER",
+            "com.google.android.feature.THERMOMETER",
+            "com.google.android.feature.FACE_UNBLUR",
+            "com.google.android.feature.REAL_TONE",
+            "com.google.android.feature.GUIDED_FRAME",
+            "com.google.android.feature.MACRO_FOCUS",
+            "com.google.android.feature.ACTION_PAN",
+            "com.google.android.feature.LONG_EXPOSURE",
+            "com.google.android.feature.TOP_SHOT",
+            "com.google.android.feature.FREQUENT_FACES",
+            "com.google.android.feature.SPEECH_ENHANCEMENT",
+            "com.google.android.feature.ADAPTIVE_SOUND",
+            "com.google.android.feature.SPATIAL_AUDIO",
+            "com.google.android.feature.CAR_CRASH_DETECTION",
+            "com.google.android.feature.SAFETY_CHECK",
+            "com.google.android.feature.CRISIS_ALERTS",
+            "com.google.android.feature.SATELLITE_SOS",
+            "com.google.android.feature.QUICK_PHRASES",
+            "com.google.android.feature.CONVERSATION_MODE",
+            "com.google.android.feature.SMART_COMPOSE",
+            "com.google.android.feature.SMART_REPLY",
+            "com.google.android.feature.PROOFREAD",
+            "com.google.android.feature.PIXEL_TIPS",
+            "com.google.android.feature.PIXEL_DROPS",
+            "com.google.android.feature.PIXEL_WEATHER",
+            "com.google.android.feature.JOURNAL",
+            "com.google.android.feature.CUSTOM_VOICES",
+            "com.google.android.feature.SCAM_DETECTION",
+            "com.google.android.feature.THEFT_DETECTION"
+    );
 
-    private static final String[] featuresNexus = {
+    private static final Set<String> FEATURES_NEXUS = Set.of(
             "com.google.android.apps.photos.NEXUS_PRELOAD",
             "com.google.android.apps.photos.nexus_preload",
             "com.google.android.feature.PIXEL_EXPERIENCE",
             "com.google.android.feature.GOOGLE_BUILD",
             "com.google.android.feature.GOOGLE_EXPERIENCE"
-    };
+    );
 
+    private static final Set<String> PRIV_PKGS = Set.of(
+            "com.google.android.apps.photos",
+            "com.google.android.apps.recorder",
+            "com.google.android.apps.pixel.agent",
+            "com.google.android.apps.pixel.creativeassistant",
+            "com.google.android.apps.pixel.support",
+            "com.google.android.apps.pixel.relationships",
+            "com.google.android.apps.pixel.psi",
+            "com.google.android.apps.nexuslauncher",
+            "com.google.android.as",
+            "com.google.android.as.oss",
+            "com.google.android.apps.googleassistant",
+            "com.google.android.apps.nbu.files",
+            "com.google.android.apps.messaging",
+            "com.google.android.dialer",
+            "com.google.android.apps.safetyhub",
+            "com.google.android.apps.subscriptions.red",
+            "com.google.android.apps.tachyon",
+            "com.google.android.apps.tycho",
+            "com.google.android.apps.wearables.maestro.companion",
+            "com.google.android.apps.youtube.kids",
+            "com.google.android.apps.youtube.music",
+            "com.google.android.apps.wellbeing",
+            "com.google.android.apps.tips",
+            "com.google.android.apps.wallpaper",
+            "com.google.android.apps.weather",
+            "com.google.android.apps.customization.pixel",
+            "com.google.android.apps.emojiwallpaper",
+            "com.google.android.apps.aiwallpapers",
+            "com.google.android.apps.pixelmigrate",
+            "com.google.android.apps.restore",
+            "com.google.android.apps.turbo",
+            "com.google.android.apps.work.oobconfig",
+            "com.google.android.GoogleCamera",
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.inputmethod.latin",
+            "com.google.android.projection.gearhead",
+            "com.google.android.settings.intelligence",
+            "com.google.android.soundpicker",
+            "com.google.android.tts",
+            "com.google.intelligence.sense",
+            "com.google.pixel.livewallpaper",
+            "com.google.android.apps.aicore",
+            "com.google.android.apps.bard",
+            "com.google.android.apps.miphone.aiai.AiaiApplication",
+            "com.google.android.apps.accessibility.voiceaccess",
+            "com.google.android.apps.accessibility.soundamplifier",
+            "com.google.android.apps.audioeffects",
+            "com.google.android.apps.camera.services",
+            "com.google.android.apps.carrier.carrierwifi",
+            "com.google.android.apps.diagnosticstool",
+            "com.google.android.apps.dreamliner",
+            "com.google.android.apps.helprtc",
+            "com.google.android.apps.internal.betterbug",
+            "com.google.android.apps.miphone.telephony.csa",
+            "com.google.android.apps.pixel.health",
+            "com.google.android.apps.pixel.subzero",
+            "com.google.android.apps.retaildemo.preload",
+            "com.google.android.apps.scone",
+            "com.google.android.apps.security.securityhub",
+            "com.google.android.apps.wear.companion",
+            "com.google.android.apps.work.clouddpc",
+            "com.google.android.bluetooth",
+            "com.google.android.carrierservices",
+            "com.google.android.connectivity.resources",
+            "com.google.android.contacts",
+            "com.google.android.deskclock",
+            "com.google.android.euicc",
+            "com.google.android.gms",
+            "com.google.android.gms.location.history",
+            "com.google.android.gsf",
+            "com.google.android.ims",
+            "com.google.android.markup",
+            "com.google.android.odad",
+            "com.google.android.onetimeinitializer",
+            "com.google.android.partnersetup",
+            "com.google.android.pixel.setupwizard",
+            "com.google.android.setupwizard",
+            "com.google.android.storagemanager",
+            "com.google.android.tag",
+            "com.google.android.videos",
+            "com.google.android.youtube",
+            "com.google.ar.core",
+            "com.google.audio.hearing.visualization.accessibility.scribe",
+            "com.google.pixel.dynamicwallpapers",
+            "com.breel.wallpapers20",
+            "com.breel.wallpapers21",
+            "com.breel.wallpapers22",
+            "com.breel.wallpapers23",
+            "com.breel.wallpapers24",
+            "com.breel.wallpapers25"
+    );
+
+    private static final String TENSOR_TARGETS_KEY = "tensor_targets";
+    private static volatile boolean sSpoofObserverRegistered = false;
+    private static volatile boolean sTensorSpoofEnabled = false;
+    private static volatile boolean sPhotosSpoofEnabled = false;
+    private static volatile Set<String> sTensorTargets = Collections.emptySet();
+    private static final boolean sIsRealTensorDevice = PixelPropsUtils.isTensorPixelDevice();
 
     @Override
     @RavenwoodRedirect
     public boolean hasSystemFeature(String name, int version) {
-        // We check for system features in the following order:
-        //    * Build time-defined system features (constant, very efficient)
-        //    * SDK-defined system features (cached at process start, very efficient)
-        //    * IPC-retrieved system features (lazily cached, requires per-feature IPC)
-        // TODO(b/375000483): Refactor all of this logic, including flag queries, into
-        // the SystemFeaturesCache class after initial rollout and validation.
+        final String pkg = ActivityThread.currentPackageName();
+        final boolean photosSpoof = !Process.isIsolated()
+                && "com.google.android.apps.photos".equals(pkg)
+                && sPhotosSpoofEnabled;
+        if (photosSpoof) {
+            if (FEATURES_PIXEL.contains(name)) return false;
+            if (FEATURES_PIXEL_OTHERS.contains(name)) return true;
+            if (FEATURES_TENSOR.contains(name)) return false;
+            if (FEATURES_NEXUS.contains(name)) return true;
+        }
+        if (name != null && FEATURES_TENSOR.contains(name)
+                && !sIsRealTensorDevice
+                && !Process.isIsolated()
+                && !"com.google.android.apps.photos".equals(pkg)
+                && sTensorSpoofEnabled
+                && pkg != null && sTensorTargets.contains(pkg)) {
+            return true;
+        }
+        if (name != null && !sIsRealTensorDevice && !Process.isIsolated()
+                && pkg != null && PRIV_PKGS.contains(pkg)
+                && !"com.google.android.apps.photos".equals(pkg)) {
+            if (FEATURES_PIXEL.contains(name)) return true;
+            if (FEATURES_PIXEL_OTHERS.contains(name)) return true;
+        }
         Boolean maybeHasSystemFeature = RoSystemFeatures.maybeHasFeature(name, version);
         if (maybeHasSystemFeature != null) {
             return maybeHasSystemFeature;
@@ -910,16 +1117,59 @@ public class ApplicationPackageManager extends PackageManager {
             }
         }
 
-        String packageName = ActivityThread.currentPackageName();
-        if (packageName != null
-                && packageName.equals("com.google.android.apps.photos")) {
-            if (Arrays.asList(featuresPixel).contains(name)) return false;
-            if (Arrays.asList(featuresTensor).contains(name)) return false;
-            if (Arrays.asList(featuresNexus).contains(name)) return true;
-        }
         return mHasSystemFeatureCache.query(new HasSystemFeatureQuery(name, version));
     }
 
+    private static void refreshSpoofSettingsCache(ContentResolver cr) {
+        try {
+            sTensorSpoofEnabled = Settings.Secure.getInt(
+                    cr, Settings.Secure.PI_TENSOR_SPOOF, 0) == 1;
+            String raw = Settings.Secure.getString(cr, TENSOR_TARGETS_KEY);
+            sTensorTargets = (raw != null && !raw.isEmpty())
+                    ? new ArraySet<>(Arrays.asList(raw.split(",")))
+                    : Collections.emptySet();
+            int photosLegacy = Settings.Secure.getInt(
+                    cr, Settings.Secure.SPOOF_PIF_PHOTOS, -1);
+            int photosNew = Settings.Secure.getInt(
+                    cr, Settings.Secure.PI_PHOTOS_SPOOF, -1);
+            sPhotosSpoofEnabled = (photosNew != -1 ? photosNew == 1 : photosLegacy == 1);
+        } catch (Throwable t) {
+            // Settings provider not ready yet; cache stays at safe defaults
+        }
+    }
+
+    private static void registerSpoofSettingsObserver(ContextImpl context) {
+        if (sSpoofObserverRegistered || Process.isIsolated() || context == null) return;
+        synchronized (ApplicationPackageManager.class) {
+            if (sSpoofObserverRegistered) return;
+            sSpoofObserverRegistered = true;
+            final ContentResolver cr = context.getContentResolver();
+            if (cr == null) return;
+            refreshSpoofSettingsCache(cr);
+            try {
+                ContentObserver observer = new ContentObserver(new Handler(Looper.getMainLooper())) {
+                    @Override
+                    public void onChange(boolean selfChange, Uri uri) {
+                        refreshSpoofSettingsCache(cr);
+                    }
+                };
+                cr.registerContentObserver(
+                        Settings.Secure.getUriFor(Settings.Secure.PI_TENSOR_SPOOF),
+                        false, observer);
+                cr.registerContentObserver(
+                        Settings.Secure.getUriFor(TENSOR_TARGETS_KEY),
+                        false, observer);
+                cr.registerContentObserver(
+                        Settings.Secure.getUriFor(Settings.Secure.PI_PHOTOS_SPOOF),
+                        false, observer);
+                cr.registerContentObserver(
+                        Settings.Secure.getUriFor(Settings.Secure.SPOOF_PIF_PHOTOS),
+                        false, observer);
+            } catch (Throwable t) {
+                // Isolated/system-boot process without binder access to settings observer
+            }
+        }
+    }
     /** @hide */
     public static void invalidateHasSystemFeatureCache() {
         mHasSystemFeatureCache.invalidateCache();
@@ -2380,6 +2630,9 @@ public class ApplicationPackageManager extends PackageManager {
         mContext = context;
         mPM = pm;
         mUseSystemFeaturesCache = isSystemFeaturesCacheAvailable();
+        if (!Process.isIsolated()) {
+            registerSpoofSettingsObserver(context);
+        }
     }
 
     @RavenwoodIgnore

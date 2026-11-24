@@ -552,6 +552,7 @@ import com.android.server.power.stats.BatteryStatsImpl;
 import com.android.server.privatecompute.PccSandboxManagerInternal;
 import com.android.server.privatecompute.PrivateComputeStatsLogUtil;
 import com.android.server.sdksandbox.SdkSandboxManagerLocal;
+import com.android.server.spoof.AxSpoofManagerInternal;
 import com.android.server.stats.pull.StatsPullAtomService;
 import com.android.server.stats.pull.StatsPullAtomServiceInternal;
 import com.android.server.uri.GrantUri;
@@ -21456,6 +21457,98 @@ public class ActivityManagerService extends IActivityManager.Stub
             return;
         }
         r.getWindowProcessController().setOptimizationInfo(compilerFilter, compilationReason);
+    }
+
+    private void enforceDuckRkpPermission() {
+        mContext.enforceCallingOrSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS,
+                "Device RKP requires WRITE_SECURE_SETTINGS");
+        if (UserHandle.getUserId(Binder.getCallingUid()) != UserHandle.USER_SYSTEM) {
+            throw new SecurityException("Device RKP is managed by the system user");
+        }
+    }
+
+    @Override
+    public Bundle getDuckRkpState() {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            return getAxSpoofManager().getDuckRkpManager().getState();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public void setDuckRkpEnabled(boolean enabled) {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            getAxSpoofManager().getDuckRkpManager().setEnabled(enabled);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public void provisionDuckRkp() {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            getAxSpoofManager().getDuckRkpManager().provision();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public void setSpoofTrickyStoreKeyBox(String keybox) {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            getAxSpoofManager().getDuckRkpManager().setImportedKeybox(keybox);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    private AxSpoofManagerInternal getAxSpoofManager() {
+        return LocalServices.getService(AxSpoofManagerInternal.class);
+    }
+
+    @Override
+    public String getSpoofPifConfig() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getPifConfig() : null;
+    }
+
+    @Override
+    public String getSpoofPifSpoofPhotos() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getPifSpoofPhotos() : null;
+    }
+
+    @Override
+    public String getSpoofGamePropsConfig() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getGamePropsConfig() : null;
+    }
+
+    @Override
+    public String getSpoofTrickyStoreTarget() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getTrickyStoreTarget() : null;
+    }
+
+    @Override
+    public String getSpoofTrickyStoreKeyBox() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getTrickyStoreKeyBox() : null;
+    }
+
+    @Override
+    public String getSpoofTrickyStorePatch() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getTrickyStorePatch() : null;
     }
 
     // uid indexed collection of lists of ANR warning callback.

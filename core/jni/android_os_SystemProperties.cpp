@@ -745,7 +745,7 @@ bool install(State& state) {
 }  // namespace pif_prop_virt
 #endif
 
-jboolean SystemProperties_spoof_properties(
+jboolean PlayIntegritySpoofService_nativeSpoofProperties(
         JNIEnv* env, jclass /*clazz*/, jobjectArray keysJ, jobjectArray valuesJ, jboolean debugJ) {
 #if defined(__BIONIC__)
     if (keysJ == nullptr || valuesJ == nullptr) {
@@ -819,24 +819,9 @@ int register_android_os_SystemProperties(JNIEnv *env)
           (void*) SystemProperties_add_change_callback },
         { "native_report_sysprop_change", "()V",
           (void*) SystemProperties_report_sysprop_change },
-        { "native_spoof_properties",
-          "([Ljava/lang/String;[Ljava/lang/String;Z)Z",
-          (void*) SystemProperties_spoof_properties },
     };
     int res = RegisterMethodsOrDie(env, "android/os/SystemProperties",
                                    method_table, NELEM(method_table));
-    const JNINativeMethod prop_imitation_methods[] = {
-        { "nativeSpoofProperties",
-          "([Ljava/lang/String;[Ljava/lang/String;Z)Z",
-          (void*) SystemProperties_spoof_properties },
-    };
-    jclass pifClazz = env->FindClass("com/android/internal/util/PropImitationHooks");
-    if (pifClazz != nullptr) {
-        env->RegisterNatives(pifClazz, prop_imitation_methods, NELEM(prop_imitation_methods));
-        env->DeleteLocalRef(pifClazz);
-    } else {
-        env->ExceptionClear();
-    }
     return res;
 }
 

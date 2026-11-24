@@ -136,8 +136,6 @@ public class SystemProperties {
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     private static native void native_add_change_callback();
     private static native void native_report_sysprop_change();
-    private static native boolean native_spoof_properties(
-            String[] keys, String[] values, boolean debug);
 
     /**
      * Get the String value for the given {@code key}.
@@ -314,14 +312,6 @@ public class SystemProperties {
     @UnsupportedAppUsage
     public static void reportSyspropChanged() {
         native_report_sysprop_change();
-    }
-
-    /**
-     * Spoof system properties via memory virtualization in Bionic libc.
-     * @hide
-     */
-    public static boolean spoofProperties(String[] keys, String[] values, boolean debug) {
-        return native_spoof_properties(keys, values, debug);
     }
 
     /**

@@ -78,7 +78,6 @@ object MobileIconBinder {
         val volteView = view.requireViewById<ImageView>(R.id.mobile_volte)
         val volteSpace = view.requireViewById<Space>(R.id.mobile_volte_space)
         val networkTraffic = view.requireViewById<NetworkTraffic>(R.id.network_traffic)
-        val networkTrafficContainer = view.requireViewById<FrameLayout>(R.id.network_traffic_container)
         view.isVisible = viewModel.isVisible.value
         iconView.isVisible = true
         // TODO(b/238425913): We should log this visibility state.
@@ -206,9 +205,6 @@ object MobileIconBinder {
                             val prevVis = networkTypeContainer.visibility
                             networkTypeContainer.visibility =
                                 if (shouldShowNetworkType) VISIBLE else GONE
-
-                            networkTrafficContainer.visibility =
-                                if (shouldShowNetworkType && !isVoWifi) VISIBLE else GONE
 
                             if (prevVis != networkTypeContainer.visibility) {
                                 view.requestLayout()

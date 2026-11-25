@@ -20,6 +20,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.util.AttributeSet
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -167,9 +168,9 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
 
         applyNetworkTypeDimensions()
 
-        // Network traffic container
-        requireViewById<FrameLayout>(R.id.network_traffic_container).apply {
-            (layoutParams as MarginLayoutParams).marginEnd =
+        // Network traffic
+        (requireViewById<View>(R.id.network_traffic).layoutParams as MarginLayoutParams).apply {
+            marginEnd =
                 context.resources.getDimensionPixelSize(
                     R.dimen.status_bar_network_traffic_margin_end
                 )

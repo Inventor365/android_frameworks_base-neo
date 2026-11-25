@@ -28,20 +28,12 @@
         android:gravity="center_vertical"
         android:orientation="horizontal" >
 
-        <FrameLayout
-            android:id="@+id/network_traffic_container"
+        <com.android.systemui.statusbar.NetworkTraffic
+            android:id="@+id/network_traffic"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_marginEnd="@dimen/status_bar_network_traffic_margin_end"
-            android:visibility="gone">
-
-            <com.android.systemui.statusbar.NetworkTraffic
-                android:id="@+id/network_traffic"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:visibility="gone" />
-
-        </FrameLayout>
+            android:visibility="gone" />
 
         <FrameLayout
             android:id="@+id/inout_container"

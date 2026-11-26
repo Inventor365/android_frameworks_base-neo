@@ -81,6 +81,49 @@ import java.util.Set;
 
 /** Controls all the system settings related to vibration. */
 final class VibrationSettings {
+    private static final String ANDROMEDA_HAPTICS_TOUCH = "andromeda_haptics_touch_scale";
+    private static final String ANDROMEDA_HAPTICS_KEYBOARD = "andromeda_haptics_keyboard_scale";
+    private static final String ANDROMEDA_HAPTICS_GESTURE = "andromeda_haptics_gesture_scale";
+    private static final String ANDROMEDA_HAPTICS_NOTIFICATION =
+            "andromeda_haptics_notification_scale";
+    private static final String ANDROMEDA_HAPTICS_RING = "andromeda_haptics_ring_scale";
+    private static final String ANDROMEDA_HAPTICS_ALARM = "andromeda_haptics_alarm_scale";
+    private static final String ANDROMEDA_HAPTICS_MEDIA = "andromeda_haptics_media_scale";
+    private static final String ANDROMEDA_HAPTICS_PREBAKED_AS_PRIMITIVES =
+            "andromeda_haptics_prebaked_as_primitives";
+    private static final String ANDROMEDA_HAPTICS_BATTERY_SAVER = "andromeda_haptics_battery_saver";
+    private static final String ANDROMEDA_HAPTICS_BATTERY_SAVER_NOTIFICATIONS =
+            "andromeda_haptics_battery_saver_notifications";
+    /** Global setting telling AndromedaHaptics which version of this hook the framework has. */
+    private static final String ANDROMEDA_HAPTICS_HOOK_VERSION = "andromeda_haptics_hook_version";
+    private static final int ANDROMEDA_HAPTICS_HOOK = 3;
+    private static final String[] ANDROMEDA_HAPTICS_SETTINGS = {
+            ANDROMEDA_HAPTICS_TOUCH,
+            ANDROMEDA_HAPTICS_KEYBOARD,
+            ANDROMEDA_HAPTICS_GESTURE,
+            ANDROMEDA_HAPTICS_NOTIFICATION,
+            ANDROMEDA_HAPTICS_RING,
+            ANDROMEDA_HAPTICS_ALARM,
+            ANDROMEDA_HAPTICS_MEDIA,
+            ANDROMEDA_HAPTICS_PREBAKED_AS_PRIMITIVES,
+            ANDROMEDA_HAPTICS_BATTERY_SAVER,
+            ANDROMEDA_HAPTICS_BATTERY_SAVER_NOTIFICATIONS,
+    };
+
+    /**
+     * Usages AndromedaHaptics pauses while Battery Saver is on: touch, keyboard, gestures, media
+     * and vibrations without attributes (most games). Notifications join them only when the user
+     * asks. Ringtones, alarms, communication requests, accessibility, hardware feedback and
+     * physical emulation always vibrate.
+     */
+    private static final Set<Integer> ANDROMEDA_HAPTICS_POWER_SAVE_PAUSED = new HashSet<>(
+            Arrays.asList(
+                    USAGE_TOUCH,
+                    USAGE_IME_FEEDBACK,
+                    USAGE_GESTURE_INPUT,
+                    USAGE_MEDIA,
+                    USAGE_UNKNOWN));
+
     private static final String TAG = "VibrationSettings";
 
     /**
@@ -165,6 +208,8 @@ final class VibrationSettings {
     @VisibleForTesting
     final BatteryBroadcastReceiver mBatteryBroadcastReceiver;
     @VisibleForTesting
+    final PowerSaveModeReceiver mPowerSaveModeReceiver;
+    @VisibleForTesting
     final VibrationUidObserver mUidObserver;
     @VisibleForTesting
     final VibrationUserSwitchObserver mUserSwitchObserver;
@@ -194,6 +239,19 @@ final class VibrationSettings {
     @GuardedBy("mLock")
     private SparseIntArray mCurrentVibrationIntensities = new SparseIntArray();
     @GuardedBy("mLock")
+    private final SparseArray<Float> mAndromedaHapticsDrives = new SparseArray<>();
+    @GuardedBy("mLock")
+    private boolean mAndromedaHapticsPrebakedAsPrimitives;
+    // The real Battery Saver state (PowerManager#isPowerSaveMode). mBatterySaverMode below is
+    // BatterySaverPolicy's vibration flag, which is off by default
+    // (config_batterySaver_full_disableVibration) and whenever an accessibility service runs.
+    @GuardedBy("mLock")
+    private boolean mPowerSaveMode;
+    @GuardedBy("mLock")
+    private boolean mAndromedaHapticsPauseInPowerSave = true;
+    @GuardedBy("mLock")
+    private boolean mAndromedaHapticsPauseNotifications;
+    @GuardedBy("mLock")
     private boolean mBatterySaverMode;
     @GuardedBy("mLock")
     private boolean mVibrateOn;
@@ -214,6 +272,7 @@ final class VibrationSettings {
         mSettingObserver = new SettingsContentObserver(handler);
         mRingerModeBroadcastReceiver = new RingerModeBroadcastReceiver();
         mBatteryBroadcastReceiver = new BatteryBroadcastReceiver();
+        mPowerSaveModeReceiver = new PowerSaveModeReceiver();
         mUidObserver = new VibrationUidObserver();
         mUserSwitchObserver = new VibrationUserSwitchObserver();
         mLowPowerModeListener = new VibrationLowPowerModeListener();
@@ -270,6 +329,14 @@ final class VibrationSettings {
                 new IntentFilter(AudioManager.INTERNAL_RINGER_MODE_CHANGED_ACTION),
                 Context.RECEIVER_EXPORTED_UNAUDITED);
 
+        // AndromedaHaptics pauses haptics in Battery Saver on its own policy (see
+        // shouldAndromedaHapticsPauseLocked), so it follows the real power-save state.
+        mContext.registerReceiver(mPowerSaveModeReceiver,
+                new IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+                Context.RECEIVER_NOT_EXPORTED);
+        updatePowerSaveMode();
+        publishAndromedaHapticsHook();
+
         // Listen to all settings that might affect the result of Vibrator.getVibrationIntensity.
         registerSettingsObserver(Settings.System.getUriFor(Settings.System.VIBRATE_INPUT_DEVICES));
         registerSettingsObserver(Settings.System.getUriFor(Settings.System.VIBRATE_ON));
@@ -289,6 +356,9 @@ final class VibrationSettings {
                 Settings.System.getUriFor(Settings.System.RING_VIBRATION_INTENSITY));
         registerSettingsObserver(
                 Settings.System.getUriFor(Settings.System.KEYBOARD_VIBRATION_ENABLED));
+        for (String setting : ANDROMEDA_HAPTICS_SETTINGS) {
+            registerSettingsObserver(Settings.System.getUriFor(setting));
+        }
         registerSettingsObserver(
                 Settings.System.getUriFor(Settings.System.KEYBOARD_VIBRATION_INTENSITY));
 
@@ -361,6 +431,59 @@ final class VibrationSettings {
     }
 
     /**
+     * Returns the AndromedaHaptics drive level for the usage in the range (0, 1], or a negative
+     * value when the category is not configured and the stock behaviour applies.
+     */
+    public float getAndromedaHapticsDrive(@VibrationAttributes.Usage int usageHint) {
+        synchronized (mLock) {
+            return mAndromedaHapticsDrives.get(usageHint, -1f);
+        }
+    }
+
+    /** Whether prebaked effects should be played as primitives so they scale continuously. */
+    public boolean isAndromedaHapticsPrebakedAsPrimitives() {
+        synchronized (mLock) {
+            return mAndromedaHapticsPrebakedAsPrimitives;
+        }
+    }
+
+    /** Whether AndromedaHaptics' Battery Saver policy pauses vibrations of this usage now. */
+    @GuardedBy("mLock")
+    private boolean shouldAndromedaHapticsPauseLocked(@VibrationAttributes.Usage int usage) {
+        if (!mPowerSaveMode || !mAndromedaHapticsPauseInPowerSave) {
+            return false;
+        }
+        return ANDROMEDA_HAPTICS_POWER_SAVE_PAUSED.contains(usage)
+                || (usage == USAGE_NOTIFICATION && mAndromedaHapticsPauseNotifications);
+    }
+
+    private void updatePowerSaveMode() {
+        PowerManager powerManager = mContext.getSystemService(PowerManager.class);
+        boolean powerSaveMode = powerManager != null && powerManager.isPowerSaveMode();
+        boolean changed;
+        synchronized (mLock) {
+            changed = powerSaveMode != mPowerSaveMode;
+            mPowerSaveMode = powerSaveMode;
+        }
+        if (changed) {
+            notifyListeners();
+        }
+    }
+
+    /** Lets the AndromedaHaptics app show the settings this hook version honours. */
+    private void publishAndromedaHapticsHook() {
+        try {
+            if (Settings.Global.getInt(mContext.getContentResolver(),
+                    ANDROMEDA_HAPTICS_HOOK_VERSION, 0) != ANDROMEDA_HAPTICS_HOOK) {
+                Settings.Global.putInt(mContext.getContentResolver(),
+                        ANDROMEDA_HAPTICS_HOOK_VERSION, ANDROMEDA_HAPTICS_HOOK);
+            }
+        } catch (RuntimeException e) {
+            Slog.w(TAG, "Unable to publish the AndromedaHaptics hook version", e);
+        }
+    }
+
+    /**
      * Returns the duration, in milliseconds, that the vibrator control service will wait for new
      * vibration params.
      * @return The request vibration params timeout in milliseconds.
@@ -426,6 +549,10 @@ final class VibrationSettings {
             }
 
             if (mBatterySaverMode && !BATTERY_SAVER_USAGE_ALLOWLIST.contains(usage)) {
+                return Status.IGNORED_FOR_POWER;
+            }
+
+            if (shouldAndromedaHapticsPauseLocked(usage)) {
                 return Status.IGNORED_FOR_POWER;
             }
 
@@ -613,7 +740,77 @@ final class VibrationSettings {
 
             // A11y is not disabled by any haptic feedback setting.
             mCurrentVibrationIntensities.put(USAGE_ACCESSIBILITY, positiveHapticFeedbackIntensity);
+
+            updateAndromedaHapticsDrives(userHandle);
         }
+    }
+
+    @GuardedBy("mLock")
+    private void updateAndromedaHapticsDrives(int userHandle) {
+        mAndromedaHapticsPrebakedAsPrimitives =
+                loadSystemSetting(ANDROMEDA_HAPTICS_PREBAKED_AS_PRIMITIVES, 0, userHandle) > 0;
+        mAndromedaHapticsPauseInPowerSave =
+                loadSystemSetting(ANDROMEDA_HAPTICS_BATTERY_SAVER, 1, userHandle) != 0;
+        mAndromedaHapticsPauseNotifications =
+                loadSystemSetting(ANDROMEDA_HAPTICS_BATTERY_SAVER_NOTIFICATIONS, 0, userHandle) != 0;
+        mAndromedaHapticsDrives.clear();
+        String touchLevel = Settings.System.HAPTIC_FEEDBACK_INTENSITY;
+        putAndromedaHapticsDrive(USAGE_TOUCH, ANDROMEDA_HAPTICS_TOUCH, touchLevel, userHandle);
+        putAndromedaHapticsDrive(USAGE_HARDWARE_FEEDBACK, ANDROMEDA_HAPTICS_TOUCH, touchLevel,
+                userHandle);
+        putAndromedaHapticsDrive(USAGE_PHYSICAL_EMULATION, ANDROMEDA_HAPTICS_TOUCH, touchLevel,
+                userHandle);
+        putAndromedaHapticsDrive(USAGE_IME_FEEDBACK, ANDROMEDA_HAPTICS_KEYBOARD, null, userHandle);
+        putAndromedaHapticsDrive(USAGE_GESTURE_INPUT, ANDROMEDA_HAPTICS_GESTURE,
+                Settings.System.GESTURE_INPUT_VIBRATION_INTENSITY, userHandle);
+        String notificationLevel = Settings.System.NOTIFICATION_VIBRATION_INTENSITY;
+        putAndromedaHapticsDrive(USAGE_NOTIFICATION, ANDROMEDA_HAPTICS_NOTIFICATION,
+                notificationLevel, userHandle);
+        putAndromedaHapticsDrive(USAGE_COMMUNICATION_REQUEST, ANDROMEDA_HAPTICS_NOTIFICATION,
+                notificationLevel, userHandle);
+        putAndromedaHapticsDrive(USAGE_RINGTONE, ANDROMEDA_HAPTICS_RING,
+                Settings.System.RING_VIBRATION_INTENSITY, userHandle);
+        putAndromedaHapticsDrive(USAGE_ALARM, ANDROMEDA_HAPTICS_ALARM,
+                Settings.System.ALARM_VIBRATION_INTENSITY, userHandle);
+        // Vibrations without attributes, i.e. most games and other apps, count as media.
+        String mediaLevel = Settings.System.MEDIA_VIBRATION_INTENSITY;
+        putAndromedaHapticsDrive(USAGE_MEDIA, ANDROMEDA_HAPTICS_MEDIA, mediaLevel, userHandle);
+        putAndromedaHapticsDrive(USAGE_UNKNOWN, ANDROMEDA_HAPTICS_MEDIA, mediaLevel, userHandle);
+    }
+
+    @GuardedBy("mLock")
+    private void putAndromedaHapticsDrive(int usage, String setting, String levelSetting,
+            int userHandle) {
+        // Zero is expressed by the intensity setting being off, so it never reaches the scaler.
+        int percent = Math.min(loadSystemSetting(setting, 0, userHandle), 100);
+        if (percent <= 0) {
+            return;
+        }
+        // A level changed on the stock vibration page takes effect right away, until
+        // AndromedaHaptics turns it into a percentage of its own.
+        int level = levelSetting == null ? -1 : loadSystemSetting(levelSetting, -1, userHandle);
+        if (level > Vibrator.VIBRATION_INTENSITY_OFF && level != andromedaPercentToLevel(percent)) {
+            percent = andromedaLevelToPercent(level);
+        }
+        mAndromedaHapticsDrives.put(usage, percent / 100f);
+    }
+
+    /** The stock level shown for a percentage. Must match HapticsConfigStore in the app. */
+    static int andromedaPercentToLevel(int percent) {
+        if (percent <= 40) {
+            return Vibrator.VIBRATION_INTENSITY_LOW;
+        }
+        return percent <= 75 ? Vibrator.VIBRATION_INTENSITY_MEDIUM
+                : Vibrator.VIBRATION_INTENSITY_HIGH;
+    }
+
+    /** The percentage a stock level stands for. Must match HapticsConfigStore in the app. */
+    static int andromedaLevelToPercent(int level) {
+        return switch (level) {
+            case Vibrator.VIBRATION_INTENSITY_LOW -> 35;
+            case Vibrator.VIBRATION_INTENSITY_MEDIUM -> 65;
+            default -> 100;
+        };
     }
 
     private void updateRingerMode() {
@@ -651,6 +848,9 @@ final class VibrationSettings {
                     + ", mVibrateOn=" + mVibrateOn
                     + ", mVibrateInputDevices=" + mVibrateInputDevices
                     + ", mBatterySaverMode=" + mBatterySaverMode
+                    + ", mPowerSaveMode=" + mPowerSaveMode
+                    + ", mAndromedaHapticsPauseInPowerSave=" + mAndromedaHapticsPauseInPowerSave
+                    + ", mAndromedaHapticsPauseNotifications=" + mAndromedaHapticsPauseNotifications
                     + ", mRingerMode=" + ringerModeToString(mRingerMode)
                     + ", mOnWirelessCharger=" + mOnWirelessCharger
                     + ", mVibrationIntensities=" + vibrationIntensitiesString
@@ -667,6 +867,10 @@ final class VibrationSettings {
             pw.println("vibrateOn = " + mVibrateOn);
             pw.println("vibrateInputDevices = " + mVibrateInputDevices);
             pw.println("batterySaverMode = " + mBatterySaverMode);
+            pw.println("powerSaveMode = " + mPowerSaveMode);
+            pw.println("andromedaHapticsPauseInPowerSave = " + mAndromedaHapticsPauseInPowerSave);
+            pw.println("andromedaHapticsPauseNotifications = "
+                    + mAndromedaHapticsPauseNotifications);
             pw.println("ringerMode = " + ringerModeToString(mRingerMode));
             pw.println("onWirelessCharger = " + mOnWirelessCharger);
             pw.println("processStateCache size = " + mUidObserver.mProcStatesCache.size());
@@ -889,6 +1093,17 @@ final class VibrationSettings {
             String action = intent.getAction();
             if (Intent.ACTION_BATTERY_CHANGED.equals(action)) {
                 updateBatteryInfo(intent);
+            }
+        }
+    }
+
+    /** Follows the real Battery Saver state for AndromedaHaptics' power-save policy. */
+    @VisibleForTesting
+    final class PowerSaveModeReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGED.equals(intent.getAction())) {
+                updatePowerSaveMode();
             }
         }
     }

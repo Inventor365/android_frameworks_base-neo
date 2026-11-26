@@ -261,6 +261,9 @@ public class ScreenRecordingCallbackController {
 
     @GuardedBy("WindowManagerService.mGlobalLock")
     private void dispatchCallbacks(ArraySet<Integer> uids, boolean visibleInScreenRecording) {
+        if (visibleInScreenRecording && mWms.shouldHideScreenCapture()) {
+            return;
+        }
         if (uids.isEmpty()) {
             return;
         }

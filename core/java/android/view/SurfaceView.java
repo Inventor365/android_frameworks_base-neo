@@ -53,6 +53,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.AttributeSet;
@@ -1077,7 +1078,13 @@ public class SurfaceView extends View implements ViewRootImpl.SurfaceChangedCall
      * @param isSecure True if the surface view is secure.
      */
     public void setSecure(boolean isSecure) {
-        if (isSecure) {
+        boolean ignoreSecure = false;
+        try {
+            ignoreSecure = Settings.Global.getInt(getContext().getContentResolver(),
+                    Settings.Global.WINDOW_IGNORE_SECURE, 0) == 1;
+        } catch (SecurityException ignored) {
+        }
+        if (isSecure && !ignoreSecure) {
             mSurfaceFlags |= SurfaceControl.SECURE;
         } else {
             mSurfaceFlags &= ~SurfaceControl.SECURE;

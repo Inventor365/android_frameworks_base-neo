@@ -14698,13 +14698,6 @@ public final class Settings {
                 "otp_redaction_lock_time";
 
         /**
-         * Control whether FLAG_SECURE is ignored for all windows.
-         * @hide
-         */
-        @Readable
-        public static final String WINDOW_IGNORE_SECURE = "window_ignore_secure";
-
-        /**
          * Whether to show ambient instead of waking for the tap gesture
          * @hide
          */
@@ -21437,6 +21430,19 @@ public final class Settings {
          * @hide
          */
         public static final String RESTRICTED_NETWORKING_MODE = "restricted_networking_mode";
+
+        /**
+         * Control whether FLAG_SECURE is ignored for all windows.
+         * @hide
+         */
+        @Readable
+        public static final String WINDOW_IGNORE_SECURE = "window_ignore_secure";
+
+        /**
+         * Control whether application downgrade is allowed.
+         * @hide
+         */
+        public static final String PM_DOWNGRADE_ALLOWED = "pm_downgrade_allowed";
 
         /**
          * Control whether to hide screen capture status from apps.

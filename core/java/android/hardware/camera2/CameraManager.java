@@ -115,6 +115,12 @@ import java.util.concurrent.TimeUnit;
 @SystemService(Context.CAMERA_SERVICE)
 public final class CameraManager {
 
+    /** Apps can reach cameraserver before their Application, and its package, exist. */
+    private static String auxPackageName() {
+        String packageName = ActivityThread.currentOpPackageName();
+        return packageName != null ? packageName : ActivityThread.currentPackageName();
+    }
+
     private static final String TAG = "CameraManager";
     private final boolean DEBUG = false;
 
@@ -2851,13 +2857,13 @@ public final class CameraManager {
                  * if the package name does not falls in this bucket
                  */
                 boolean exposeAuxCamera = false;
-                String packageName = ActivityThread.currentOpPackageName();
+                String packageName = auxPackageName();
                 String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
                 if (packageList.length() > 0) {
                     TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
                     splitter.setString(packageList);
                     for (String str : splitter) {
-                        if (packageName.equals(str)) {
+                        if (str.equals(packageName)) {
                             exposeAuxCamera = true;
                             break;
                         }
@@ -3141,13 +3147,13 @@ public final class CameraManager {
              * if the package name does not falls in this bucket
              */
             boolean exposeMonoCamera = false;
-            String packageName = ActivityThread.currentOpPackageName();
+            String packageName = auxPackageName();
             String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
             if (packageList.length() > 0) {
                 TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
                 splitter.setString(packageList);
                 for (String str : splitter) {
-                    if (packageName.equals(str)) {
+                    if (str.equals(packageName)) {
                         exposeMonoCamera = true;
                         break;
                     }
@@ -3337,13 +3343,13 @@ public final class CameraManager {
              * if the package name does not falls in this bucket
              */
             boolean exposeMonoCamera = false;
-            String packageName = ActivityThread.currentOpPackageName();
+            String packageName = auxPackageName();
             String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
             if (packageList.length() > 0) {
                 TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
                 splitter.setString(packageList);
                 for (String str : splitter) {
-                    if (packageName.equals(str)) {
+                    if (str.equals(packageName)) {
                         exposeMonoCamera = true;
                         break;
                     }

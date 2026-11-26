@@ -301,6 +301,7 @@ public class Camera {
     public static int getNumberOfCameras() {
         boolean exposeAuxCamera = false;
         String packageName = ActivityThread.currentOpPackageName();
+        if (packageName == null) packageName = ActivityThread.currentPackageName();
         /* Force to expose only two cameras
          * if the package name does not falls in this bucket
          */
@@ -309,7 +310,7 @@ public class Camera {
             TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
             splitter.setString(packageList);
             for (String str : splitter) {
-                if (packageName.equals(str)) {
+                if (str.equals(packageName)) {
                     exposeAuxCamera = true;
                     break;
                 }

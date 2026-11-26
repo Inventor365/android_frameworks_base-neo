@@ -28,7 +28,6 @@ import com.android.systemui.qs.tiles.DataSwitchTile
 import com.android.systemui.qs.tiles.DnsTile
 import com.android.systemui.qs.tiles.HeadsUpTile
 import com.android.systemui.qs.tiles.LocaleTile
-import com.android.systemui.qs.tiles.PowerProfileTile
 import com.android.systemui.qs.tiles.PowerShareTile
 import com.android.systemui.qs.tiles.PreferredNetworkTile
 import com.android.systemui.qs.tiles.RefreshRateTile
@@ -97,12 +96,6 @@ interface NeotericModule {
     @StringKey(LocaleTile.TILE_SPEC)
     fun bindLocaleTile(localeTile: LocaleTile): QSTileImpl<*>
 
-    /** Inject PowerProfileTile into tileMap in QSModule */
-    @Binds
-    @IntoMap
-    @StringKey(PowerProfileTile.TILE_SPEC)
-    fun bindPowerProfileTile(powerProfileTile: PowerProfileTile): QSTileImpl<*>
-
     /** Inject PowerShareTile into tileMap in QSModule */
     @Binds
     @IntoMap
@@ -146,21 +139,6 @@ interface NeotericModule {
     fun bindVpnTile(vpnTile: VpnTile): QSTileImpl<*>
 
     companion object {
-        @Provides
-        @IntoMap
-        @StringKey(PowerProfileTile.TILE_SPEC)
-        fun providePowerProfileTileConfig(uiEventLogger: QsEventLogger): QSTileConfig {
-            return QSTileConfig(
-                tileSpec = TileSpec.create(PowerProfileTile.TILE_SPEC),
-                uiConfig = QSTileUIConfig.Resource(
-                    iconRes = R.drawable.ic_power_default,
-                    labelRes = R.string.powerprofile_title
-                ),
-                instanceId = uiEventLogger.getNewInstanceId(),
-                category = TileCategory.UTILITIES
-            )
-        }
-
         @Provides
         @IntoMap
         @StringKey(AmbientDisplayTile.TILE_SPEC)

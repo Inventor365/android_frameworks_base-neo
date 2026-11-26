@@ -51,6 +51,10 @@ final class AmbientMusicShim {
     private static final UUID QC_ACD_VENDOR_UUID =
             UUID.fromString("4e93281b-296e-4d73-9833-2710c3c7c1db");
 
+    /** Vendor UUID of the QTI music detection LSM module on the legacy sound trigger HAL. */
+    private static final UUID QTI_MD_VENDOR_UUID =
+            UUID.fromString("876c1b46-9d4d-40cc-a4fd-4d5ec7a80e47");
+
     private static final UUID[] AMBIENT_MUSIC_VENDOR_UUIDS = {
         UUID.fromString("9f6ad62a-1f0b-11e7-87c5-40a8f03d3f15"),
         UUID.fromString("12caddb1-acdb-4dce-8cb0-2e95a2313aee"),
@@ -113,6 +117,11 @@ final class AmbientMusicShim {
 
     static boolean isEnabled() {
         return SystemProperties.getBoolean("persist.sys.ambient_music_shim", true);
+    }
+
+    /** Legacy HALs without ACD detect music through the QTI music detection module instead. */
+    private static boolean isQtiMd() {
+        return "qti_md".equals(SystemProperties.get("persist.sys.ambient_music_engine"));
     }
 
     static boolean matches(GenericSoundModel soundModel) {
@@ -203,12 +212,19 @@ final class AmbientMusicShim {
                 + "ms");
         noteEvent(soundModel.getUuid());
         scheduleSweep();
-        return new GenericSoundModel(soundModel.getUuid(), QC_ACD_VENDOR_UUID,
+        return new GenericSoundModel(soundModel.getUuid(),
+                isQtiMd() ? QTI_MD_VENDOR_UUID : QC_ACD_VENDOR_UUID,
                 soundModel.getData(), soundModel.getVersion());
     }
 
     /** The ACD engine takes its contexts from the recognition config rather than the model. */
     static RecognitionConfig translateConfig(RecognitionConfig config) {
+        if (isQtiMd()) {
+            return new RecognitionConfig.Builder()
+                    .setCaptureRequested(false)
+                    .setMultipleTriggersAllowed(true)
+                    .build();
+        }
         return new RecognitionConfig.Builder()
                 .setCaptureRequested(false)
                 .setMultipleTriggersAllowed(true)
@@ -367,6 +383,10 @@ final class AmbientMusicShim {
 
     /** Returns the music context's event type (STARTED/DETECTED/...), or -1 if absent. */
     private static int getMusicEventType(GenericRecognitionEvent event) {
+        if (isQtiMd()) {
+            return event.status == SoundTrigger.RECOGNITION_STATUS_SUCCESS
+                    ? AUDIO_CONTEXT_EVENT_DETECTED : AUDIO_CONTEXT_EVENT_STOPPED;
+        }
         byte[] data = event.data;
         if (data == null) {
             return -1;
@@ -425,7 +445,7 @@ final class AmbientMusicShim {
 
     /** Events made here are already in client form and skip the ACD filtering. */
     static boolean isSynthetic(GenericRecognitionEvent event) {
-        return event.data == null || event.data.length == 0;
+        return event.soundModelHandle == 0 && (event.data == null || event.data.length == 0);
     }
 
     private static GenericRecognitionEvent syntheticEvent(int status) {

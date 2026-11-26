@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<!-- A switch row inside a Power profile / Charging panel. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="64dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:paddingVertical="10dp">
+
+    <ImageView
+        android:id="@+id/yuki_row_icon"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:tint="@androidprv:color/materialColorOnSurfaceVariant"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="14dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/yuki_row_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Dialog.Body"
+            android:fontFamily="@*android:string/config_headlineFontFamilyMedium"
+            android:textColor="@androidprv:color/materialColorOnSurface"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/yuki_row_summary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:accessibilityLiveRegion="polite"
+            android:textAppearance="@style/TextAppearance.Dialog.Body"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/yuki_row_switch"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_marginStart="12dp"
+        android:theme="@style/Theme.Material3.DynamicColors.DayNight" />
+</LinearLayout>

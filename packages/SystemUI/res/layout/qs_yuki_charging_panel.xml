@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<!-- Charging panel (qs.tiles.yuki.ChargingPanelDelegate). -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="false">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/qs_yuki_icon_circle">
+
+                <ImageView
+                    android:id="@+id/yuki_panel_icon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_yuki_charging_fast"
+                    android:tint="@androidprv:color/materialColorOnPrimaryContainer"
+                    android:importantForAccessibility="no" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/yuki_panel_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:accessibilityHeading="true"
+                android:text="@string/yuki_charging_panel_title"
+                android:textAppearance="@style/TextAppearance.Dialog.Title" />
+
+            <TextView
+                android:id="@+id/yuki_panel_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:accessibilityLiveRegion="polite"
+                android:fontFeatureSettings="tnum"
+                android:textAppearance="@style/TextAppearance.Dialog.Body.Message" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/yuki_speed_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <include android:id="@+id/yuki_speed_slow" layout="@layout/qs_yuki_segment" />
+            <Space android:layout_width="2dp" android:layout_height="match_parent" />
+            <include android:id="@+id/yuki_speed_fast" layout="@layout/qs_yuki_segment" />
+            <Space android:layout_width="2dp" android:layout_height="match_parent" />
+            <include android:id="@+id/yuki_speed_superfast" layout="@layout/qs_yuki_segment" />
+        </LinearLayout>
+
+        <include
+            android:id="@+id/yuki_bypass_row"
+            layout="@layout/qs_yuki_switch_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" />
+
+        <include
+            android:id="@+id/yuki_night_row"
+            layout="@layout/qs_yuki_switch_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/yuki_panel_settings"
+                style="@style/Widget.Dialog.Button.QuickSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:background="@drawable/qs_yuki_text_button"
+                android:paddingHorizontal="16dp"
+                android:text="@string/yuki_panel_settings"
+                android:textColor="@androidprv:color/materialColorPrimary" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/yuki_panel_done"
+                style="@style/Widget.Dialog.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:paddingHorizontal="26dp"
+                android:text="@string/quick_settings_done" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

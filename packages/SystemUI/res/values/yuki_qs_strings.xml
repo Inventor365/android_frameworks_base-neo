@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Power profile and Charging tiles (device Parts; see qs.tiles.yuki.PartsContract) -->
+    <string name="yuki_power_title">Power profile</string>
+    <string name="yuki_profile_auto">Auto</string>
+    <string name="yuki_profile_balanced">Balanced</string>
+    <string name="yuki_profile_battery">Battery saver</string>
+    <string name="yuki_profile_performance">Performance</string>
+    <string name="yuki_profile_gaming">Gaming</string>
+    <string name="yuki_power_auto_tuning">Auto · tuning for <xliff:g id="state" example="video playback">%1$s</xliff:g></string>
+    <string name="yuki_power_auto_short">Auto · <xliff:g id="state" example="video playback">%1$s</xliff:g></string>
+    <string name="yuki_power_off">Off in Settings</string>
+    <string name="yuki_power_htsr">High touch sampling</string>
+    <string name="yuki_auto_benchmark">a benchmark</string>
+    <string name="yuki_auto_heavy_mgame">a demanding game</string>
+    <string name="yuki_auto_esports_tgame">a competitive game</string>
+    <string name="yuki_auto_extreme_open">an app opening</string>
+    <string name="yuki_auto_casual_game">a casual game</string>
+    <string name="yuki_auto_highfps">a high frame rate app</string>
+    <string name="yuki_auto_heavy_compute">a heavy workload</string>
+    <string name="yuki_auto_video">video playback</string>
+    <string name="yuki_auto_videochat">a video call</string>
+    <string name="yuki_auto_navigation">navigation</string>
+    <string name="yuki_auto_huanji">a large transfer</string>
+    <string name="yuki_auto_lightui">light use</string>
+    <string name="yuki_auto_normal">everyday use</string>
+    <string name="yuki_auto_idle">screen off</string>
+    <string name="yuki_auto_idle_audio">screen off with audio</string>
+    <string name="yuki_charging_title">Yuki Charging</string>
+    <string name="yuki_charging_panel_title">Yuki Charging Service</string>
+    <string name="yuki_charging_slow">Slow</string>
+    <string name="yuki_charging_fast">Fast</string>
+    <string name="yuki_charging_superfast">Superfast</string>
+    <string name="yuki_charging_live"><xliff:g id="level" example="68">%1$d</xliff:g>%% · <xliff:g id="watts" example="27.4">%2$.1f</xliff:g> W</string>
+    <string name="yuki_charging_live_full_in"><xliff:g id="level" example="68">%1$d</xliff:g>%% · <xliff:g id="watts" example="27.4">%2$.1f</xliff:g> W · full in about <xliff:g id="time" example="35 min">%3$s</xliff:g></string>
+    <string name="yuki_charging_live_usb"><xliff:g id="level" example="68">%1$d</xliff:g>%% · <xliff:g id="watts" example="2.4">%2$.1f</xliff:g> W · USB port</string>
+    <string name="yuki_charging_usb_port">USB port</string>
+    <string name="yuki_charging_on_battery"><xliff:g id="level" example="68">%1$d</xliff:g>%% · On battery</string>
+    <string name="yuki_charging_bypass_line"><xliff:g id="level" example="68">%1$d</xliff:g>%% · Charger powers the phone</string>
+    <string name="yuki_charging_full"><xliff:g id="level" example="100">%1$d</xliff:g>%% · Charged</string>
+    <string name="yuki_minutes"><xliff:g id="minutes" example="35">%1$d</xliff:g> min</string>
+    <string name="yuki_hours_minutes"><xliff:g id="hours" example="1">%1$d</xliff:g> h <xliff:g id="minutes" example="20">%2$d</xliff:g> min</string>
+    <string name="yuki_tile_charging_watts"><xliff:g id="mode" example="Fast">%1$s</xliff:g> · <xliff:g id="watts" example="27">%2$.0f</xliff:g> W</string>
+    <string name="yuki_bypass">Bypass charging</string>
+    <string name="yuki_bypass_off">Battery charges normally</string>
+    <string name="yuki_bypass_on">Charger powers the phone</string>
+    <string name="yuki_bypass_pending">Switching…</string>
+    <string name="yuki_bypass_unplugged">Connect a charger to use bypass</string>
+    <string name="yuki_bypass_unsupported">Not supported on this device</string>
+    <string name="yuki_night">Night charging</string>
+    <string name="yuki_panel_settings">Settings</string>
+</resources>

@@ -46,7 +46,7 @@ import dagger.Provides
 import dagger.multibindings.IntoMap
 import dagger.multibindings.StringKey
 
-@Module
+@Module(includes = [com.android.systemui.qs.tiles.yuki.YukiTilesModule::class])
 interface NeotericModule {
     /** Inject AmbientDisplayTile into tileMap in QSModule */
     @Binds

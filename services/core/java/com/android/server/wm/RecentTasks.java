@@ -426,8 +426,8 @@ class RecentTasks {
      * any dependent services (like SystemUI) is started.
      */
     void loadRecentsComponent(Resources res) {
-        final String rawRecentsComponent = res.getString(
-                com.android.internal.R.string.config_recentsComponentName);
+        final String rawRecentsComponent =
+                com.android.internal.util.neoteric.HomeLauncherUtils.resolveRecentsComponentString(res);
         if (TextUtils.isEmpty(rawRecentsComponent)) {
             return;
         }

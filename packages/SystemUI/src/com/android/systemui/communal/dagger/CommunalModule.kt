@@ -163,7 +163,10 @@ interface CommunalModule {
         @Provides
         @Named(LAUNCHER_PACKAGE)
         fun provideLauncherPackage(@Main resources: Resources): String {
-            return resources.getString(R.string.launcher_overlayable_package)
+            return com.android.internal.util.neoteric.HomeLauncherUtils.resolveLauncherPackage(
+                resources,
+                resources.getString(R.string.launcher_overlayable_package),
+            )
         }
 
         @Provides

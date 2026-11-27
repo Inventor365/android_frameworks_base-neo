@@ -18,12 +18,15 @@ package com.android.server.pm;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.content.res.Resources;
 import android.text.TextUtils;
 
 import com.android.internal.util.ArrayUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Helps {@link PackageManagerService} keep track of the names of special packages like SetupWizard.
@@ -97,7 +100,7 @@ public final class KnownPackages {
     private final String mCompanionPackage;
     private final String mRetailDemoPackage;
     private final String mOverlayConfigSignaturePackage;
-    private final String mRecentsPackage;
+    private final String[] mRecentsPackages;
     private final String mDeveloperVerificationServiceProviderPackage;
 
     KnownPackages(DefaultAppProvider defaultAppProvider, String requiredInstallerPackage,
@@ -125,7 +128,7 @@ public final class KnownPackages {
         mCompanionPackage = companionPackageName;
         mRetailDemoPackage = retailDemoPackage;
         mOverlayConfigSignaturePackage = overlayConfigSignaturePackage;
-        mRecentsPackage = recentsPackage;
+        mRecentsPackages = buildRecentsPackages(recentsPackage);
         mDeveloperVerificationServiceProviderPackage = developerVerificationServiceProviderPackage;
     }
 
@@ -222,12 +225,32 @@ public final class KnownPackages {
             case PACKAGE_OVERLAY_CONFIG_SIGNATURE:
                 return snapshot.filterOnlySystemPackages(mOverlayConfigSignaturePackage);
             case PACKAGE_RECENTS:
-                return snapshot.filterOnlySystemPackages(mRecentsPackage);
+                return snapshot.filterOnlySystemPackages(mRecentsPackages);
             case PACKAGE_DEVELOPER_VERIFICATION_SERVICE_PROVIDER:
                 return snapshot.filterOnlySystemPackages(
                         mDeveloperVerificationServiceProviderPackage);
             default:
                 return ArrayUtils.emptyArray(String.class);
         }
+    }
+
+    private static String[] buildRecentsPackages(String primaryRecentsPackage) {
+        Set<String> pkgs = new LinkedHashSet<>();
+        if (!TextUtils.isEmpty(primaryRecentsPackage)) {
+            pkgs.add(primaryRecentsPackage);
+        }
+        try {
+            String[] launcherPackages = Resources.getSystem().getStringArray(
+                    com.android.internal.R.array.config_homeLauncherPackages);
+            if (launcherPackages != null) {
+                for (String pkg : launcherPackages) {
+                    if (!TextUtils.isEmpty(pkg)) {
+                        pkgs.add(pkg);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return pkgs.toArray(new String[0]);
     }
 }

@@ -2629,6 +2629,10 @@ public class ComputerEngine implements Computer {
         if (HIDDEN_ROM_PACKAGES.contains(packageName)) {
             return true;
         }
+        if (com.android.server.neoteric.HomeLauncherSwitchService.shouldHide(
+                callingUid, userId, packageName)) {
+            return true;
+        }
         // if the target is included in Settings.Secure.HIDE_APPLIST, do filter
         if (com.android.internal.util.neoteric.HideAppListUtils.shouldHideAppList(
                 mContext, packageName)) {

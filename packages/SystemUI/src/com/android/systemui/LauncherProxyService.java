@@ -811,8 +811,9 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
         mShadeExpansionTargetDisplayInteractor = shadeExpansionTargetDisplayInteractor;
         mUserTracker = userTracker;
         mConnectionBackoffAttempts = 0;
-        mRecentsComponentName = ComponentName.unflattenFromString(context.getString(
-                com.android.internal.R.string.config_recentsComponentName));
+        mRecentsComponentName =
+                com.android.internal.util.neoteric.HomeLauncherUtils.resolveRecentsComponent(
+                        context.getResources());
         mQuickStepIntent = new Intent(ACTION_QUICKSTEP)
                 .setPackage(mRecentsComponentName.getPackageName());
         mPerDisplaySysUiStateRepository = perDisplaySysUiStateRepository;

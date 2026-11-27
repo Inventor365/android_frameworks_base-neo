@@ -188,4 +188,15 @@
     <!-- Defines the value used by the device sysfs node
          to disable DC dimming -->
     <string name="config_deviceDcDimmingDisableValue">0</string>
+
+    <!-- Bundled home/recents launcher switcher options (0 = Neoteric Launcher, 1 = Pixel Launcher) -->
+    <string-array name="config_homeLauncherComponents" translatable="false">
+        <item>com.android.launcher3/com.android.quickstep.RecentsActivity</item>
+        <item>com.google.android.apps.nexuslauncher/com.android.quickstep.RecentsActivity</item>
+    </string-array>
+
+    <string-array name="config_homeLauncherPackages" translatable="false">
+        <item>com.android.launcher3</item>
+        <item>com.google.android.apps.nexuslauncher</item>
+    </string-array>
 </resources>

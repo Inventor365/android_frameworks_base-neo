@@ -497,8 +497,9 @@ public class EdgeBackGestureHandler {
         mDisplayBackGestureHandlerFactory = displayBackGestureHandlerFactory;
         mDesktopState = desktopState;
 
-        ComponentName recentsComponentName = ComponentName.unflattenFromString(
-                context.getString(com.android.internal.R.string.config_recentsComponentName));
+        ComponentName recentsComponentName =
+                com.android.internal.util.neoteric.HomeLauncherUtils.resolveRecentsComponent(
+                        context.getResources());
         if (recentsComponentName != null) {
             String recentsPackageName = recentsComponentName.getPackageName();
             PackageManager manager = context.getPackageManager();

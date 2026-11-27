@@ -202,8 +202,9 @@ public class PccSandboxManagerInternal implements OnRoleHoldersChangedListener {
                 com.android.internal.R.string.config_systemSettingsIntelligence);
         String systemUiPackage = mContext.getString(
                 com.android.internal.R.string.config_systemUi);
-        String recentsUiComponent = mContext.getString(
-                com.android.internal.R.string.config_recentsComponentName);
+        String recentsUiComponent =
+                com.android.internal.util.neoteric.HomeLauncherUtils.resolveRecentsComponentString(
+                        mContext.getResources());
         String recentsUiPackage = null;
         if (recentsUiComponent != null && !recentsUiComponent.isEmpty()) {
             ComponentName cn = ComponentName.unflattenFromString(recentsUiComponent);

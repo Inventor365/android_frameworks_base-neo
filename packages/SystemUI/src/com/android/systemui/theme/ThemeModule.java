@@ -44,7 +44,8 @@ public class ThemeModule {
     @Provides
     @Named(LAUNCHER_PACKAGE)
     static String provideLauncherPackage(@Main Resources resources) {
-        return resources.getString(R.string.launcher_overlayable_package);
+        return com.android.internal.util.neoteric.HomeLauncherUtils.resolveLauncherPackage(
+                resources, resources.getString(R.string.launcher_overlayable_package));
     }
 
     /** */

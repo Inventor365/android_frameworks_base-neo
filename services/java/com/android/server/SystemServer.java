@@ -334,6 +334,7 @@ import com.android.server.wm.WindowManagerGlobalLock;
 import com.android.server.wm.WindowManagerService;
 import com.android.server.lineage.health.HealthInterfaceService;
 import com.android.server.neoteric.CustomDeviceConfigService;
+import com.android.server.neoteric.HomeLauncherSwitchService;
 import com.android.server.neoteric.PowerShareService;
 
 import dalvik.system.VMDebug;
@@ -3028,6 +3029,11 @@ public final class SystemServer implements Dumpable {
             // CustomDeviceConfigService
             t.traceBegin("StartCustomDeviceConfigService");
             mSystemServiceManager.startService(CustomDeviceConfigService.class);
+            t.traceEnd();
+
+            // HomeLauncherSwitchService
+            t.traceBegin("StartHomeLauncherSwitchService");
+            mSystemServiceManager.startService(HomeLauncherSwitchService.class);
             t.traceEnd();
 
             // Lineage Health Service

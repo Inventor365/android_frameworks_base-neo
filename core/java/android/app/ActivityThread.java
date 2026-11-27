@@ -8301,6 +8301,9 @@ public final class ActivityThread extends ClientTransactionHandler
 
         long timestampApplicationOnCreateNs = 0;
         try {
+            com.android.internal.util.neoteric.PixelLauncherHookBootstrap.maybeInit(
+                    appContext, data.appInfo, data.processName, data.info.getClassLoader());
+
             // If the app is being launched for full backup or restore, bring it up in
             // a restricted environment with the base application class.
             app = data.info.makeApplicationInner(data.restrictedBackupMode, null);

@@ -2402,8 +2402,13 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
             mRetailDemoPackage = getRetailDemoPackageName();
             mOverlayConfigSignaturePackage = ensureSystemPackageName(computer,
                     mInjector.getSystemConfig().getOverlayConfigSignaturePackage());
+            final ComponentName recentsCn =
+                    com.android.internal.util.neoteric.HomeLauncherUtils.resolveRecentsComponent(
+                            mContext.getResources());
             mRecentsPackage = ensureSystemPackageName(computer,
-                    getPackageFromComponentString(R.string.config_recentsComponentName));
+                    recentsCn != null
+                            ? recentsCn.getPackageName()
+                            : getPackageFromComponentString(R.string.config_recentsComponentName));
             mAmbientContextDetectionPackage = ensureSystemPackageName(computer,
                     getPackageFromComponentString(
                             R.string.config_defaultAmbientContextDetectionService));

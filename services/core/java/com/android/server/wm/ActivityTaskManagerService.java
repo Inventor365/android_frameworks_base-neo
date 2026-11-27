@@ -6313,8 +6313,11 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
                 com.android.internal.R.bool.config_useSystemProvidedLauncherForSecondary);
         if (preferredPackage == null || useSystemProvidedLauncher) {
             // Using the package name stored in config if no preferred package name or forced.
-            final String secondaryHomePackage = mContext.getResources().getString(
-                    com.android.internal.R.string.config_secondaryHomePackage);
+            final String secondaryHomePackage =
+                    com.android.internal.util.neoteric.HomeLauncherUtils.resolveLauncherPackage(
+                            mContext.getResources(),
+                            mContext.getResources().getString(
+                                    com.android.internal.R.string.config_secondaryHomePackage));
             intent.setPackage(secondaryHomePackage);
         } else {
             intent.setPackage(preferredPackage);

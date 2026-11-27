@@ -35,6 +35,7 @@ import android.view.WindowManager;
 
 import androidx.annotation.Nullable;
 
+import com.android.internal.util.ArrayUtils;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Application;
 import com.android.systemui.dagger.qualifiers.Main;
@@ -42,6 +43,7 @@ import com.android.systemui.dagger.qualifiers.UiBackground;
 import com.android.systemui.display.data.repository.DisplayRepository;
 import com.android.systemui.navigationbar.NavigationBarController;
 import com.android.systemui.navigationbar.views.NavigationBarView;
+import com.android.systemui.res.R;
 import com.android.systemui.settings.DisplayTracker;
 import com.android.systemui.shade.ShadeDisplayAware;
 import com.android.systemui.shade.data.repository.ShadeDisplaysRepository;
@@ -78,6 +80,7 @@ public class KeyguardDisplayManager {
     private final Boolean mIsCentralizedWallpaperPresentationEnabled;
     private final DisplayRepository mDisplayRepository;
     private final Context mContext;
+    private final String[] mExcludedDisplays;
 
     private boolean mShowing;
     private final DisplayInfo mTmpDisplayInfo = new DisplayInfo();
@@ -126,6 +129,8 @@ public class KeyguardDisplayManager {
             @WallpaperPresentationEnabled Boolean isCentralizedWallpaperPresentationEnabled,
             DisplayRepository displayRepository) {
         mContext = context;
+        mExcludedDisplays = context.getResources().getStringArray(
+                R.array.config_keyguardPresentationExcludedDisplays);
         mNavigationBarControllerLazy = navigationBarControllerLazy;
         mShadePositionRepositoryProvider = shadePositionRepositoryProvider;
         uiBgExecutor.execute(() -> mMediaRouter = mContext.getSystemService(MediaRouter.class));
@@ -154,6 +159,11 @@ public class KeyguardDisplayManager {
     public boolean isKeyguardShowable(Display display, int shadeDisplayId) {
         if (display == null) {
             Log.i(TAG, "Cannot show Keyguard on null display");
+            return false;
+        }
+        if (ArrayUtils.contains(mExcludedDisplays, display.getUniqueId())) {
+            Log.i(TAG, "Do not show KeyguardPresentation on excluded display "
+                    + display.getDisplayId());
             return false;
         }
         if (display.getDisplayId() == shadeDisplayId) {

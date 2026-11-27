@@ -47,6 +47,9 @@
     <!-- Whether or not lockscreen shortcuts can be customized -->
     <bool name="custom_lockscreen_shortcuts_enabled">false</bool>
 
+    <!-- Unique ids of displays that never get a keyguard presentation -->
+    <string-array name="config_keyguardPresentationExcludedDisplays" translatable="false" />
+
     <!-- Whether or not long-pressing on keyguard will display to customize lockscreen -->
     <bool name="long_press_keyguard_customize_lockscreen_enabled">false</bool>
 

@@ -377,12 +377,28 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     protected boolean usesBlurredBackground() {
-        // QS tiles inherit the blur applied to the entire shade window. Do the same for
-        // notifications in the unlocked shade, and only add a local blur region on keyguard.
-        return mOnKeyguard && usesTransparentBackground() && lockscreenBlurForNotifications();
+        if (!usesTransparentBackground()) {
+            return false;
+        }
+        final com.android.systemui.statusbar.YukiGlassSnapshot glass =
+                com.android.systemui.statusbar.YukiGlassController.get(getContext()).getCurrent();
+        if (glass.getEffectiveShadeMode()
+                == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF) {
+            return false;
+        }
+        if (glass.getNotifCards() && lockscreenBlurForNotifications()) {
+            return true;
+        }
+        return mOnKeyguard && lockscreenBlurForNotifications();
     }
 
     protected boolean usesTransparentBackground() {
+        final com.android.systemui.statusbar.YukiGlassSnapshot glass =
+                com.android.systemui.statusbar.YukiGlassController.get(getContext()).getCurrent();
+        if (glass.getEffectiveShadeMode()
+                == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF) {
+            return false;
+        }
         return mIsBlurSupported && notificationRowTransparency()
                 && (!mOnKeyguard || lockscreenBlurForNotifications());
     }

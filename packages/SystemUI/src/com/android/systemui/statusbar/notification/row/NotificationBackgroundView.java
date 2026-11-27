@@ -90,6 +90,9 @@ public class NotificationBackgroundView extends View implements Dumpable,
     // True only if the dismiss button is visible.
     private boolean mDrawDismissButtonCutout = false;
     private boolean mOnKeyguard = true;
+    private boolean mIsHeadsUp = false;
+    private final com.android.systemui.statusbar.YukiGlassController.Listener mYukiGlassListener =
+            snapshot -> applyYukiGlassStyle();
 
     public NotificationBackgroundView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -358,13 +361,12 @@ public class NotificationBackgroundView extends View implements Dumpable,
                             if (mBackgroundBlurDrawable == null) {
                                 mBackgroundBlurDrawable =
                                         view.getViewRootImpl().createBackgroundBlurDrawable();
-                                mBackgroundBlurDrawable.setBlurRadius(
-                                        getResources().getDimensionPixelSize(
-                                                R.dimen.notification_background_blur_radius));
+                                mBackgroundBlurDrawable.setApplyRenderNodeAlpha(true);
                                 mBackgroundBlurDrawable.setXfermode(null);
                                 mBackgroundBlurDrawable.setCallback(
                                         NotificationBackgroundView.this);
                                 mBackgroundBlurDrawable.setColor(Color.TRANSPARENT);
+                                applyYukiGlassStyle();
                                 updateBlurDrawableAlpha();
 
                                 updateBackgroundRadii();
@@ -393,6 +395,56 @@ public class NotificationBackgroundView extends View implements Dumpable,
             mBackgroundBlurDrawable = null;
             invalidate();
         }
+    }
+
+    public void setHeadsUpGlass(boolean headsUp) {
+        if (mIsHeadsUp != headsUp) {
+            mIsHeadsUp = headsUp;
+            applyYukiGlassStyle();
+        }
+    }
+
+    private void applyYukiGlassStyle() {
+        if (mBackgroundBlurDrawable == null) {
+            return;
+        }
+        final com.android.systemui.statusbar.YukiGlassSnapshot glass =
+                com.android.systemui.statusbar.YukiGlassController.get(getContext()).getCurrent();
+        final int mode = glass.getEffectiveShadeMode();
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF
+                || !glass.getNotifCards()) {
+            mBackgroundBlurDrawable.setBlurRadius(0);
+            invalidate();
+            return;
+        }
+        final boolean darkTheme =
+                (getResources().getConfiguration().uiMode
+                        & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                        == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        final int baseRadius = mOnKeyguard || mIsHeadsUp
+                ? getResources().getDimensionPixelSize(R.dimen.notification_background_blur_radius)
+                : getResources().getDimensionPixelSize(R.dimen.max_shade_window_blur_radius);
+        final int scaledRadius = Math.max(1, Math.round(baseRadius * glass.getIntensityScale()));
+        final int material = com.android.internal.util.neoteric.YukiGlassConfig.cardMaterialFor(
+                mode, darkTheme, mIsHeadsUp);
+        mBackgroundBlurDrawable.setMaterial(material);
+        mBackgroundBlurDrawable.setBlurRadius(scaledRadius);
+        invalidate();
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        com.android.systemui.statusbar.YukiGlassController.get(getContext())
+                .addListener(mYukiGlassListener);
+        applyYukiGlassStyle();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        com.android.systemui.statusbar.YukiGlassController.get(getContext())
+                .removeListener(mYukiGlassListener);
+        super.onDetachedFromWindow();
     }
 
     public Drawable getBaseBackgroundLayer() {

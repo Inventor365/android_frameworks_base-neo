@@ -256,12 +256,17 @@ constructor(
         }
 
     private fun computeBlurAndZoomOut(): Pair<Int, Float> {
+        val effectiveMax = blurUtils.effectiveMaxBlurRadius()
         val animationRadius =
-            MathUtils.constrain(
-                shadeAnimation.radius,
-                blurUtils.minBlurRadius,
-                blurUtils.maxBlurRadius,
-            )
+            if (effectiveMax <= 0f) {
+                0f
+            } else {
+                MathUtils.constrain(
+                    shadeAnimation.radius,
+                    blurUtils.minBlurRadius,
+                    effectiveMax,
+                )
+            }
         val expansionRadius =
             blurUtils.blurRadiusOfRatio(
                 ShadeInterpolation.getNotificationScrimAlpha(
@@ -284,7 +289,14 @@ constructor(
         // Brightness slider removes blur
         shadeRadius *= (1 - brightnessMirrorSpring.ratio)
 
-        var blur = shadeRadius.toInt()
+        var blur =
+            if (shadeRadius <= 0.5f) {
+                0
+            } else if (shadeRadius >= effectiveMax - 1f) {
+                effectiveMax.toInt()
+            } else {
+                (shadeRadius.toInt() / 2) * 2
+            }
 
         // If the blur comes from waking up, we don't want to zoom out the background
         val zoomOut =

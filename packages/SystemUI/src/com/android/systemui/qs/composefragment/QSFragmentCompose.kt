@@ -274,10 +274,26 @@ constructor(
 
     @Composable
     private fun Content(modifier: Modifier = Modifier) {
+        val context = LocalContext.current
+        val yukiGlass = com.android.systemui.qs.shared.style.rememberYukiGlassSnapshot(context)
+        val baseShadeBlurPx =
+            remember(context) {
+                context.resources.getDimensionPixelSize(R.dimen.max_shade_window_blur_radius)
+            }
+        val effectiveShadeBlurPx =
+            if (yukiGlass.effectiveQsMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF) {
+                0
+            } else {
+                (baseShadeBlurPx * yukiGlass.intensityScale).fastRoundToInt()
+            }
         PlatformTheme(isDarkTheme = if (notificationShadeBlur()) isSystemInDarkTheme() else true) {
-            ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
-                Box(
-                    modifier =
+            CompositionLocalProvider(
+                com.android.systemui.qs.shared.style.LocalYukiGlassSnapshot provides yukiGlass,
+                com.android.systemui.qs.shared.style.LocalYukiShadeBlurRadiusPx provides
+                    effectiveShadeBlurPx,
+            ) {
+                ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
+                    Box(
                         modifier
                             .layout { measurable, constraints ->
                                 measurable.measure(constraints).run {
@@ -303,7 +319,8 @@ constructor(
                             // by the composables.
                             .thenIf(viewModel.showingMirror) { Modifier.gesturesDisabled() }
                 ) {
-                    CollapsableQuickSettingsSTL()
+                        CollapsableQuickSettingsSTL()
+                    }
                 }
             }
         }

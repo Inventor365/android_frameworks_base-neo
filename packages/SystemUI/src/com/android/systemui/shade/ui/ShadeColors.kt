@@ -31,27 +31,66 @@ object ShadeColors {
      */
     @JvmStatic
     fun shadePanel(context: Context, blurSupported: Boolean, withScrim: Boolean): Int {
-        return if (blurSupported) {
-            if (withScrim) {
-                ColorUtils.compositeColors(
-                    shadePanelStandard(context),
-                    shadePanelScrimBehind(context),
-                )
-            } else {
-                shadePanelStandard(context)
-            }
+        val glass = com.android.systemui.statusbar.YukiGlassController.get(context).current
+        val mode =
+            if (blurSupported) glass.effectiveShadeMode
+            else com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF) {
+            return shadePanelFallback(context)
+        }
+        val dark =
+            (context.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val frostFactor = (glass.frostPercent / 100f).coerceIn(0f, 1f)
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_LIQUID) {
+            val alpha =
+                if (dark) {
+                    ((0.18f + 0.24f * frostFactor) * 255f).toInt().coerceIn(28, 128)
+                } else {
+                    ((0.16f + 0.22f * frostFactor) * 255f).toInt().coerceIn(24, 118)
+                }
+            val base = if (dark) 0xFF0A0D12.toInt() else 0xFFF2F5FA.toInt()
+            return ColorUtils.setAlphaComponent(base, alpha)
+        }
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_FROSTED) {
+            val alpha = ((0.06f + 0.14f * frostFactor) * 255f).toInt().coerceIn(12, 64)
+            val base = if (dark) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+            return ColorUtils.setAlphaComponent(base, alpha)
+        }
+        return if (withScrim) {
+            ColorUtils.compositeColors(
+                shadePanelStandard(context),
+                shadePanelScrimBehind(context),
+            )
         } else {
-            shadePanelFallback(context)
+            shadePanelStandard(context)
         }
     }
 
     @JvmStatic
     fun notificationScrim(context: Context, blurSupported: Boolean): Int {
-        return if (blurSupported) {
-            notificationScrimStandard(context)
-        } else {
-            notificationScrimFallback(context)
+        val glass = com.android.systemui.statusbar.YukiGlassController.get(context).current
+        val mode =
+            if (blurSupported) glass.effectiveShadeMode
+            else com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF) {
+            return notificationScrimFallback(context)
         }
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_LIQUID) {
+            val alpha = if (glass.dualTone) (0.14f * 255f).toInt() else (0.18f * 255f).toInt()
+            return ColorUtils.setAlphaComponent(
+                context.getColor(R.color.notification_scrim_base),
+                alpha,
+            )
+        }
+        if (mode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_FROSTED) {
+            return ColorUtils.setAlphaComponent(
+                context.getColor(R.color.notification_scrim_base),
+                (0.12f * 255f).toInt(),
+            )
+        }
+        return notificationScrimStandard(context)
     }
 
     @JvmStatic

@@ -87,6 +87,9 @@ import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.panels.ui.compose.BounceableInfo
+import com.android.systemui.qs.shared.style.LocalYukiGlassSnapshot
+import com.android.systemui.qs.shared.style.LocalYukiShadeBlurRadiusPx
+import com.android.systemui.qs.shared.style.yukiGlassSurface
 import com.android.systemui.qs.panels.ui.compose.Tooltip
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ActiveIconCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ActiveTileCornerRadius
@@ -169,7 +172,44 @@ fun ContentScope.Tile(
                 tile.state.collect { value = it.toIconProvider() }
             }
 
-        val colors = TileDefaults.getColorForState(uiState, iconOnly)
+        val yukiGlass = LocalYukiGlassSnapshot.current
+        val yukiBlurPx = LocalYukiShadeBlurRadiusPx.current
+        val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+        val qsGlassMode = yukiGlass.effectiveQsMode
+        val useTileGlass =
+            yukiGlass.qsTiles &&
+                yukiBlurPx > 0 &&
+                (qsGlassMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_FROSTED ||
+                    qsGlassMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_LIQUID)
+        val isTileActive = uiState.visualState == STATE_ACTIVE
+        val tileMaterial =
+            if (useTileGlass) {
+                com.android.internal.util.neoteric.YukiGlassConfig.slabMaterialFor(
+                    qsGlassMode,
+                    isDarkTheme,
+                    isTileActive,
+                )
+            } else {
+                com.android.internal.util.neoteric.YukiGlassConfig.MATERIAL_PLAIN_OPTOUT
+            }
+        val rawColors = TileDefaults.getColorForState(uiState, iconOnly)
+        val colors =
+            if (!useTileGlass) {
+                rawColors
+            } else {
+                val isLiquid =
+                    qsGlassMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_LIQUID
+                val targetBg =
+                    when {
+                        isTileActive && !(uiState.handlesToggleClick && !iconOnly) ->
+                            rawColors.background.copy(alpha = if (isLiquid) 0.62f else 0.56f)
+                        isTileActive ->
+                            rawColors.background.copy(alpha = if (isLiquid) 0.16f else 0.08f)
+                        else ->
+                            rawColors.background.copy(alpha = if (isLiquid) 0.14f else 0.06f)
+                    }
+                rawColors.copy(background = targetBg)
+            }
         val hapticsViewModel: TileHapticsViewModel =
             rememberViewModel(traceName = "TileHapticsViewModel") {
                 tileHapticsViewModelFactory.create(tile)
@@ -227,6 +267,12 @@ fun ContentScope.Tile(
                 modifier =
                     modifier
                         .then(surfaceRevealModifier)
+                        .yukiGlassSurface(
+                            shape = tileShape,
+                            material = tileMaterial,
+                            blurRadiusPx = yukiBlurPx,
+                            enabled = useTileGlass,
+                        )
                         .borderOnFocus(
                             color = MaterialTheme.colorScheme.secondary,
                             tileShape.topEnd,

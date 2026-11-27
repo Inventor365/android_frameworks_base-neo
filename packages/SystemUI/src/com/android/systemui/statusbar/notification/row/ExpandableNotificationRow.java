@@ -4779,10 +4779,11 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
 
     @Override
     protected boolean usesBlurredBackground() {
-        // A heads-up pinned over the launcher or an app has no blur behind it, so it gets its own
-        // blur region, kept while it slides away.
+        final boolean headsUp = !mOnKeyguard && (isPinned() || mHeadsupDisappearRunning);
+        if (mBackgroundNormal != null) {
+            mBackgroundNormal.setHeadsUpGlass(headsUp);
+        }
         return super.usesBlurredBackground()
-                || (!mOnKeyguard && (isPinned() || mHeadsupDisappearRunning)
-                        && usesTransparentBackground() && lockscreenBlurForNotifications());
+                || (headsUp && usesTransparentBackground() && lockscreenBlurForNotifications());
     }
 }

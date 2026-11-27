@@ -286,6 +286,26 @@ public final class RenderNode {
         }
 
         /**
+         * Returns true if this listener wants ancestor RenderThread clip + alpha delivered via
+         * {@link #positionChangedWithRenderState}.
+         *
+         * @hide
+         */
+        default boolean needsRenderState() {
+            return false;
+        }
+
+        /**
+         * Called by native on RenderThread with clipped window bounds and effective ancestor alpha.
+         *
+         * @hide
+         */
+        default void positionChangedWithRenderState(long frameNumber, int left, int top,
+                int right, int bottom, float alpha) {
+            positionChanged(frameNumber, left, top, right, bottom);
+        }
+
+        /**
          * Called by JNI
          *
          * @hide */
@@ -312,6 +332,23 @@ public final class RenderNode {
             if (listener != null) {
                 listener.positionChanged(frameNumber, left, top, right, bottom, clipLeft,
                         clipTop, clipRight, clipBottom, nodeWidth, nodeHeight, shouldDisableClip);
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        /**
+         * Called by JNI
+         *
+         * @hide */
+        static boolean callPositionChangedWithRenderState(
+                WeakReference<PositionUpdateListener> weakListener, long frameNumber,
+                int left, int top, int right, int bottom, float alpha) {
+            final PositionUpdateListener listener = weakListener.get();
+            if (listener != null) {
+                listener.positionChangedWithRenderState(frameNumber, left, top, right, bottom,
+                        alpha);
                 return true;
             } else {
                 return false;
@@ -413,6 +450,24 @@ public final class RenderNode {
         }
 
         @Override
+        public boolean needsRenderState() {
+            for (PositionUpdateListener pul : mListeners) {
+                if (pul.needsRenderState()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public void positionChangedWithRenderState(long frameNumber, int left, int top,
+                int right, int bottom, float alpha) {
+            for (PositionUpdateListener pul : mListeners) {
+                pul.positionChangedWithRenderState(frameNumber, left, top, right, bottom, alpha);
+            }
+        }
+
+        @Override
         public void positionLost(long frameNumber) {
             for (PositionUpdateListener pul : mListeners) {
                 pul.positionLost(frameNumber);
@@ -445,7 +500,8 @@ public final class RenderNode {
             comp = comp.with(listener);
         }
         mCompositePositionUpdateListener = comp;
-        nRequestPositionUpdates(mNativeRenderNode, new WeakReference<>(comp));
+        nRequestPositionUpdates(mNativeRenderNode, new WeakReference<>(comp),
+                comp.needsRenderState());
     }
 
     /**
@@ -460,7 +516,8 @@ public final class RenderNode {
         if (comp != null) {
             comp = comp.without(listener);
             mCompositePositionUpdateListener = comp;
-            nRequestPositionUpdates(mNativeRenderNode, new WeakReference<>(comp));
+            nRequestPositionUpdates(mNativeRenderNode, new WeakReference<>(comp),
+                    comp.needsRenderState());
         }
     }
 
@@ -1711,7 +1768,7 @@ public final class RenderNode {
     private static native int nGetAllocatedSize(long renderNode);
 
     private static native void nRequestPositionUpdates(long renderNode,
-            WeakReference<PositionUpdateListener> callback);
+            WeakReference<PositionUpdateListener> callback, boolean needsRenderState);
 
     // Animations
 

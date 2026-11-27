@@ -18,6 +18,9 @@
 
 #include <log/log.h>
 
+#include <algorithm>
+#include <cmath>
+
 #include "RenderNode.h"
 #include "utils/MathUtils.h"
 
@@ -75,6 +78,20 @@ static void computeTransformImpl(const DirtyStack* currentFrame, Matrix4* outMat
 void DamageAccumulator::computeCurrentTransform(Matrix4* outMatrix) const {
     outMatrix->loadIdentity();
     computeTransformImpl(mHead, outMatrix);
+}
+
+float DamageAccumulator::computeCurrentAlpha() const {
+    float alpha = 1.0f;
+    const DirtyStack* frame = mHead;
+    while (frame->prev != frame) {
+        if (frame->type == TransformRenderNode) {
+            const float nodeAlpha = frame->renderNode->properties().getAlpha();
+            if (!std::isfinite(nodeAlpha) || nodeAlpha <= 0.0f) return 0.0f;
+            alpha *= std::min(nodeAlpha, 1.0f);
+        }
+        frame = frame->prev;
+    }
+    return alpha;
 }
 
 void DamageAccumulator::pushCommon() {
@@ -243,17 +260,38 @@ void DamageAccumulator::applyRenderNodeTransform(DirtyStack* frame) {
 }
 
 static void computeClipAndTransformImpl(const DirtyStack* currentFrame, SkRect* crop,
-                                        Matrix4* outMatrix, bool* disableClip) {
+                                        Matrix4* outMatrix, bool* disableClip,
+                                        bool includeRenderClips = false) {
     SkRect currentCrop = *crop;
     switch (currentFrame->type) {
         case TransformRenderNode: {
             // Disable auto clip if the current RenderNode has mParentCount greater than 1.
-            if (currentFrame->renderNode->getParentCount() > 1) {
+            if (disableClip != nullptr && currentFrame->renderNode->getParentCount() > 1) {
                 *disableClip = true;
             }
             const RenderProperties& props = currentFrame->renderNode->properties();
             // Perform clipping
-            if (props.getClipDamageToBounds() && !currentCrop.isEmpty()) {
+            if (includeRenderClips) {
+                const auto clipFlags = props.getClippingFlags();
+                if (clipFlags) {
+                    Rect clip;
+                    props.getClippingRectForFlags(clipFlags, &clip);
+                    if (!currentCrop.intersect(clip.toSkRect())) currentCrop.setEmpty();
+                }
+                const auto& reveal = props.getRevealClip();
+                if (reveal.willClip()) {
+                    Rect clip;
+                    reveal.getBounds(&clip);
+                    if (!currentCrop.intersect(clip.toSkRect())) currentCrop.setEmpty();
+                } else {
+                    const auto& outline = props.getOutline();
+                    if (outline.willClip() && outline.getPath()) {
+                        if (!currentCrop.intersect(outline.getBounds().toSkRect())) {
+                            currentCrop.setEmpty();
+                        }
+                    }
+                }
+            } else if (props.getClipDamageToBounds() && !currentCrop.isEmpty()) {
                 if (!currentCrop.intersect(SkRect::MakeIWH(props.getWidth(), props.getHeight()))) {
                     currentCrop.setEmpty();
                 }
@@ -272,7 +310,8 @@ static void computeClipAndTransformImpl(const DirtyStack* currentFrame, SkRect* 
     }
 
     if (currentFrame->prev != currentFrame) {
-        computeClipAndTransformImpl(currentFrame->prev, crop, outMatrix, disableClip);
+        computeClipAndTransformImpl(currentFrame->prev, crop, outMatrix, disableClip,
+                                    includeRenderClips);
     }
     switch (currentFrame->type) {
         case TransformRenderNode:
@@ -300,6 +339,14 @@ SkRect DamageAccumulator::computeClipAndTransform(const SkRect& bounds, Matrix4*
     globalToLocal.loadInverse(*outMatrix);
     mapRect(&globalToLocal, cropInGlobal, &cropInLocal);
     return cropInLocal;
+}
+
+SkRect DamageAccumulator::computeCurrentClip(const SkRect& bounds) const {
+    SkRect crop = bounds;
+    Matrix4 transform;
+    transform.loadIdentity();
+    computeClipAndTransformImpl(mHead, &crop, &transform, nullptr, true);
+    return crop;
 }
 
 void DamageAccumulator::dirty(float left, float top, float right, float bottom) {

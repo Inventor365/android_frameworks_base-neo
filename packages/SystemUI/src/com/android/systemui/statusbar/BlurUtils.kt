@@ -84,12 +84,57 @@ constructor(
     @VisibleForTesting
     open fun createTransaction(): SurfaceControl.Transaction = SurfaceControl.Transaction()
 
+    fun effectiveMaxBlurRadius(): Float {
+        if (SystemProperties.getInt(
+                com.android.internal.util.neoteric.YukiGlassConfig.PROP_ENABLED,
+                com.android.internal.util.neoteric.YukiGlassConfig.DEFAULT_ENABLED,
+            ) == 0
+        ) {
+            return 0f
+        }
+        val globalStyle =
+            SystemProperties.getInt(
+                com.android.internal.util.neoteric.YukiGlassConfig.PROP_STYLE,
+                com.android.internal.util.neoteric.YukiGlassConfig.DEFAULT_STYLE,
+            )
+        val shadeOverride =
+            SystemProperties.getInt(
+                com.android.internal.util.neoteric.YukiGlassConfig.PROP_SHADE_MODE,
+                com.android.internal.util.neoteric.YukiGlassConfig.MODE_FOLLOW_GLOBAL,
+            )
+        val effectiveMode =
+            if (
+                shadeOverride >= com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF &&
+                    shadeOverride <= com.android.internal.util.neoteric.YukiGlassConfig.MODE_LIQUID
+            ) {
+                shadeOverride
+            } else {
+                globalStyle
+            }
+        if (effectiveMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_OFF) {
+            return 0f
+        }
+        val intensity =
+            SystemProperties.getInt(
+                com.android.internal.util.neoteric.YukiGlassConfig.PROP_INTENSITY,
+                com.android.internal.util.neoteric.YukiGlassConfig.DEFAULT_INTENSITY,
+            ).coerceIn(0, 200)
+        if (intensity == 0) {
+            return 0f
+        }
+        return (maxBlurRadius * (intensity / 100f)).coerceAtLeast(minBlurRadius)
+    }
+
     /** Translates a ratio from 0 to 1 to a blur radius in pixels. */
     fun blurRadiusOfRatio(ratio: Float): Float {
         if (ratio == 0f) {
             return 0f
         }
-        return MathUtils.lerp(minBlurRadius, maxBlurRadius, ratio)
+        val effectiveMax = effectiveMaxBlurRadius()
+        if (effectiveMax <= 0f) {
+            return 0f
+        }
+        return MathUtils.lerp(minBlurRadius, effectiveMax, ratio)
     }
 
     /**
@@ -100,7 +145,11 @@ constructor(
         if (ratio == 0f) {
             return 0f
         }
-        return MathUtils.lerp(minBlurRadius, maxBlurRadius / 2, ratio)
+        val effectiveMax = effectiveMaxBlurRadius()
+        if (effectiveMax <= 0f) {
+            return 0f
+        }
+        return MathUtils.lerp(minBlurRadius, effectiveMax / 2f, ratio)
     }
 
     /** Translates a blur radius in pixels to a ratio between 0 to 1. */
@@ -108,9 +157,13 @@ constructor(
         if (blur == 0f) {
             return 0f
         }
+        val effectiveMax = effectiveMaxBlurRadius()
+        if (effectiveMax <= minBlurRadius) {
+            return 0f
+        }
         return MathUtils.map(
             minBlurRadius,
-            maxBlurRadius,
+            effectiveMax,
             0f /* maxStart */,
             1f /* maxStop */,
             blur,

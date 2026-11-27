@@ -60,6 +60,9 @@ public:
     void peekAtDirty(SkRect* dest) const;
 
     void computeCurrentTransform(Matrix4* outMatrix) const;
+    float computeCurrentAlpha() const;
+    SkRect computeCurrentClip(const SkRect& bounds) const;
+
 
     SkRect computeClipAndTransform(const SkRect& bounds, Matrix4* outMatrix,
                                    bool* disableClip) const;

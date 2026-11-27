@@ -485,6 +485,10 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
 
         hydrateStateInternally(behindScrim);
 
+        com.android.systemui.statusbar.YukiGlassController.get(mContext).addListener(snapshot -> {
+            updateThemeColors();
+            updateScrims();
+        });
         mViewsAttached = true;
     }
 

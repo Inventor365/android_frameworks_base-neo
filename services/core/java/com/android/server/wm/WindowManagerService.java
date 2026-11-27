@@ -925,11 +925,23 @@ public class WindowManagerService extends IWindowManager.Stub
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mDevelopmentOverrideDesktopExperienceUri, false, this,
                     UserHandle.USER_ALL);
+            for (String[] entry : com.android.internal.util.neoteric.YukiGlassConfig.MIRRORED_KEYS) {
+                resolver.registerContentObserver(
+                        Settings.Secure.getUriFor(entry[0]), false, this, UserHandle.USER_ALL);
+            }
+            com.android.internal.util.neoteric.YukiGlassConfig.syncToSystemProperties(resolver);
         }
 
         @Override
         public void onChange(boolean selfChange, Uri uri) {
             if (uri == null) {
+                return;
+            }
+
+            if (uri.getLastPathSegment() != null
+                    && uri.getLastPathSegment().startsWith("yuki_glass_")) {
+                com.android.internal.util.neoteric.YukiGlassConfig.syncToSystemProperties(
+                        mContext.getContentResolver());
                 return;
             }
 

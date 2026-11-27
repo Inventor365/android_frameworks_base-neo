@@ -59,6 +59,7 @@ public final class BackgroundBlurDrawable extends Drawable {
     private final Paint mPaint = new Paint();
     private final Path mRectPath = new Path();
     private final float[] mTmpRadii = new float[8];
+    private final Rect mCanvasClip = new Rect();
 
     private boolean mVisible = true;
 
@@ -75,6 +76,9 @@ public final class BackgroundBlurDrawable extends Drawable {
     private float mCornerRadiusBRX;
     private float mCornerRadiusBRY;
     private int mAlpha = 255;
+    private int mMaterial = 0;
+    private boolean mApplyRenderNodeAlpha = false;
+    private final float[] mRenderNodeAlpha = new float[] { 1.0f };
 
     // Do not update from UiThread. This holds the latest position for this drawable. It is used
     // by the Aggregator from RenderThread to get the final position of the blur region sent to SF
@@ -86,10 +90,28 @@ public final class BackgroundBlurDrawable extends Drawable {
     public final RenderNode.PositionUpdateListener mPositionUpdateListener =
             new RenderNode.PositionUpdateListener() {
             @Override
+            public boolean needsRenderState() {
+                return true;
+            }
+
+            @Override
             public void positionChanged(long frameNumber, int left, int top, int right,
                     int bottom) {
                 mAggregator.onRenderNodePositionChanged(frameNumber, () -> {
                     mRect.set(left, top, right, bottom);
+                    mRenderNodeAlpha[0] = 1.0f;
+                });
+            }
+
+            @Override
+            public void positionChangedWithRenderState(long frameNumber, int left, int top,
+                    int right, int bottom, float alpha) {
+                final float clampedAlpha = Float.isFinite(alpha)
+                        ? Math.max(0.0f, Math.min(1.0f, alpha))
+                        : 1.0f;
+                mAggregator.onRenderNodePositionChanged(frameNumber, () -> {
+                    mRect.set(left, top, right, bottom);
+                    mRenderNodeAlpha[0] = clampedAlpha;
                 });
             }
 
@@ -97,6 +119,7 @@ public final class BackgroundBlurDrawable extends Drawable {
             public void positionLost(long frameNumber) {
                 mAggregator.onRenderNodePositionChanged(frameNumber, () -> {
                     mRect.setEmpty();
+                    mRenderNodeAlpha[0] = 0.0f;
                 });
             }
         };
@@ -115,7 +138,16 @@ public final class BackgroundBlurDrawable extends Drawable {
         if (mRectPath.isEmpty() || !isVisible() || getAlpha() == 0) {
             return;
         }
-
+        final Rect bounds = getBounds();
+        if (canvas.getClipBounds(mCanvasClip)) {
+            if (!mCanvasClip.intersect(bounds)) {
+                return;
+            }
+            mCanvasClip.offset(-bounds.left, -bounds.top);
+            mRenderNode.setClipRect(mCanvasClip);
+        } else {
+            mRenderNode.setClipRect(null);
+        }
         canvas.drawPath(mRectPath, mPaint);
         canvas.drawRenderNode(mRenderNode);
     }
@@ -168,6 +200,36 @@ public final class BackgroundBlurDrawable extends Drawable {
         if (mBlurRadius != blurRadius) {
             mBlurRadius = blurRadius;
             invalidateSelf();
+            mAggregator.onBlurDrawableUpdated(this);
+        }
+    }
+
+    /**
+     * Sets the RenderEngine glass/blur material ID (see {@code YukiGlassConfig}).
+     */
+    public void setMaterial(int material) {
+        if (mMaterial != material) {
+            mMaterial = material;
+            invalidateSelf();
+            mAggregator.onBlurDrawableUpdated(this);
+        }
+    }
+
+    public int getMaterial() {
+        return mMaterial;
+    }
+
+    /**
+     * Returns true because this platform propagates ancestor RenderNode alpha & clip from
+     * RenderThread directly into SurfaceFlinger BlurRegion updates.
+     */
+    public static boolean supportsRenderNodeAlpha() {
+        return true;
+    }
+
+    public void setApplyRenderNodeAlpha(boolean apply) {
+        if (mApplyRenderNodeAlpha != apply) {
+            mApplyRenderNodeAlpha = apply;
             mAggregator.onBlurDrawableUpdated(this);
         }
     }
@@ -230,6 +292,11 @@ public final class BackgroundBlurDrawable extends Drawable {
 
     @Override
     public void setBounds(int left, int top, int right, int bottom) {
+        final Rect old = getBounds();
+        if (old.left == left && old.top == top && old.right == right && old.bottom == bottom
+                && !mRectPath.isEmpty()) {
+            return;
+        }
         super.setBounds(left, top, right, bottom);
         mRenderNode.setPosition(left, top, right, bottom);
         updatePath();
@@ -462,7 +529,7 @@ public final class BackgroundBlurDrawable extends Drawable {
             }
             ArrayList<BlurRegion> filteredBlurRegionsForFrame = new ArrayList<>();
             for (BlurRegion blurRegion : blurRegionsForFrame) {
-                if (!blurRegion.rect.isEmpty()) {
+                if (!blurRegion.rect.isEmpty() && blurRegion.effectiveAlpha() > 0f) {
                     filteredBlurRegionsForFrame.add(blurRegion);
                 }
             }
@@ -510,6 +577,9 @@ public final class BackgroundBlurDrawable extends Drawable {
         public final float cornerRadiusBRY;
         public final float alpha;
         public final Rect rect;
+        public final int material;
+        private final boolean applyRenderNodeAlpha;
+        private final float[] renderNodeAlpha;
 
         BlurRegion(BackgroundBlurDrawable drawable) {
             alpha = drawable.mAlpha / 255f;
@@ -523,15 +593,22 @@ public final class BackgroundBlurDrawable extends Drawable {
             cornerRadiusBRX = drawable.mCornerRadiusBRX;
             cornerRadiusBRY = drawable.mCornerRadiusBRY;
             rect = drawable.mRect;
+            material = drawable.mMaterial;
+            applyRenderNodeAlpha = drawable.mApplyRenderNodeAlpha;
+            renderNodeAlpha = drawable.mRenderNodeAlpha;
+        }
+
+        float effectiveAlpha() {
+            return applyRenderNodeAlpha ? alpha * renderNodeAlpha[0] : alpha;
         }
 
         /**
          * Serializes this class into a float array that's more JNI friendly.
          */
         float[] toFloatArray() {
-            final float[] floatArray = new float[14];
+            final float[] floatArray = new float[15];
             floatArray[0] = blurRadius;
-            floatArray[1] = alpha;
+            floatArray[1] = effectiveAlpha();
             floatArray[2] = rect.left;
             floatArray[3] = rect.top;
             floatArray[4] = rect.right;
@@ -544,6 +621,7 @@ public final class BackgroundBlurDrawable extends Drawable {
             floatArray[11] = cornerRadiusBLY;
             floatArray[12] = cornerRadiusBRX;
             floatArray[13] = cornerRadiusBRY;
+            floatArray[14] = material;
             return floatArray;
         }
 
@@ -559,7 +637,8 @@ public final class BackgroundBlurDrawable extends Drawable {
                     + "," + cornerRadiusBLY
                     + "," + cornerRadiusBRX
                     + "," + cornerRadiusBRY
-                    + "}, alpha=" + alpha
+                    + "}, alpha=" + effectiveAlpha()
+                    + ", material=" + material
                     + ", rect=" + rect
                     + "}";
         }

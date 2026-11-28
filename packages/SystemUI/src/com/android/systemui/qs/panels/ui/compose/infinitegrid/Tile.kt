@@ -182,12 +182,13 @@ fun ContentScope.Tile(
                 (qsGlassMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_FROSTED ||
                     qsGlassMode == com.android.internal.util.neoteric.YukiGlassConfig.MODE_LIQUID)
         val isTileActive = uiState.visualState == STATE_ACTIVE
+        val isFullTileActive = isTileActive && !(uiState.handlesToggleClick && !iconOnly)
         val tileMaterial =
             if (useTileGlass) {
                 com.android.internal.util.neoteric.YukiGlassConfig.slabMaterialFor(
                     qsGlassMode,
                     isDarkTheme,
-                    isTileActive,
+                    isFullTileActive,
                 )
             } else {
                 com.android.internal.util.neoteric.YukiGlassConfig.MATERIAL_PLAIN_OPTOUT

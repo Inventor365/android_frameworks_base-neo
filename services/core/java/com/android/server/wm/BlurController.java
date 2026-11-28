@@ -46,6 +46,7 @@ final class BlurController {
     private volatile boolean mBlurEnabled;
     private boolean mInPowerSaveMode;
     private boolean mBlurDisabledSetting;
+    private volatile boolean mYukiGlassEnabled;
     private boolean mTunnelModeEnabled = false;
 
     private TunnelModeEnabledListener mTunnelModeListener =
@@ -89,6 +90,22 @@ final class BlurController {
                 });
         mBlurDisabledSetting = getBlurDisabledSetting();
 
+        context.getContentResolver().registerContentObserver(
+                Settings.Secure.getUriFor(
+                        com.android.internal.util.neoteric.YukiGlassConfig.KEY_ENABLED),
+                false,
+                new ContentObserver(null) {
+                    @Override
+                    public void onChange(boolean selfChange) {
+                        super.onChange(selfChange);
+                        mYukiGlassEnabled = com.android.internal.util.neoteric.YukiGlassConfig
+                                .isEnabled(mContext.getContentResolver());
+                        updateBlurEnabled();
+                    }
+                },
+                android.os.UserHandle.USER_ALL);
+        mYukiGlassEnabled = com.android.internal.util.neoteric.YukiGlassConfig
+                .isEnabled(mContext.getContentResolver());
 
         TunnelModeEnabledListener.register(mTunnelModeListener);
 
@@ -113,7 +130,7 @@ final class BlurController {
     private void updateBlurEnabled() {
         synchronized (mLock) {
             final boolean newEnabled = CROSS_WINDOW_BLUR_SUPPORTED && !mBlurDisabledSetting
-                    && !mInPowerSaveMode && !mTunnelModeEnabled;
+                    && !mInPowerSaveMode && !mTunnelModeEnabled && mYukiGlassEnabled;
             if (mBlurEnabled == newEnabled) {
                 return;
             }

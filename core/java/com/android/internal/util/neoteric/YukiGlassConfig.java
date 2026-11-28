@@ -96,8 +96,8 @@ public final class YukiGlassConfig {
     public static final String PROP_DRAWER_RADIUS = "persist.sys.yuki.glass.drawer_radius";
     public static final String PROP_DRAWER_OPACITY = "persist.sys.yuki.glass.drawer_opacity";
 
-    // Defaults
-    public static final int DEFAULT_ENABLED = 1;
+    // Defaults (stock-first: blur & glass off until enabled in YukiVerse Launcher or PLEnhanced)
+    public static final int DEFAULT_ENABLED = 0;
     public static final int DEFAULT_STYLE = MODE_LIQUID;
     public static final int DEFAULT_INTENSITY = 100;
     public static final int DEFAULT_REFRACTION = 60;

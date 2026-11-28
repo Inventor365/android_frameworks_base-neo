@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class YukiGlassSnapshot(
-    val enabled: Boolean = true,
+    val enabled: Boolean = false,
     val globalStyle: Int = YukiGlassConfig.DEFAULT_STYLE,
     val qsMode: Int = YukiGlassConfig.DEFAULT_STYLE,
     val qsTiles: Boolean = true,
